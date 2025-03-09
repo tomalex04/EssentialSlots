@@ -24,9 +24,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab Management',
+      debugShowCheckedModeBanner: false,
+      title: 'Essential Slots',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white, // Set AppBar background color to white
+          iconTheme: IconThemeData(color: Colors.black), // Set AppBar icons color to black
+          titleTextStyle: TextStyle(color: Colors.black, fontSize: 20), // Set AppBar title color to black
+        ),
       ),
       home: const LoginScreen(),
       routes: {
