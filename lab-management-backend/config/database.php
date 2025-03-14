@@ -1,7 +1,7 @@
 <?php
 $servername = "localhost";
 $username = "root"; // Change this to your database username
-$password = ""; // Change this to your database password
+$password = "phpmyadmin"; // Change this to your database password
 $dbname = "lab_management"; // Change this to your database name
 
 $conn = new mysqli($servername, $username, $password, $dbname);

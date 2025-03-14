@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
           backgroundColor: Colors.white, // Set AppBar background color to white
           iconTheme: IconThemeData(color: Colors.black), // Set AppBar icons color to black
           titleTextStyle: TextStyle(color: Colors.black, fontSize: 20), // Set AppBar title color to black
-        ),
+        )
       ),
       home: const LoginScreen(),
       routes: {
