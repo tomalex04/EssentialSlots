@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
-  static const String serverIP = 'localhost/lab_management';
+  static const String serverIP = 'localhost';
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
