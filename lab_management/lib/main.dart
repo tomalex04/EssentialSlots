@@ -4,6 +4,7 @@ import 'package:lab_management/screens/login_screen.dart';
 import 'package:lab_management/screens/admin_home_screen.dart';
 import 'package:lab_management/screens/home_screen.dart';
 import 'package:lab_management/screens/register_screen.dart';
+import 'package:lab_management/screens/lab_management_screen.dart'; // Import the LabManagementScreen
 import 'package:lab_management/providers/auth_provider.dart';
 import 'package:lab_management/providers/auth_guard.dart';
 
@@ -45,6 +46,7 @@ class MyApp extends StatelessWidget {
           child: const HomeScreen(),
         ),
         '/register': (context) => const RegisterScreen(),
+        '/lab-management': (context) => const LabManagementScreen(), // Define the route for LabManagementScreen
       },
     );
   }

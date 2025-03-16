@@ -291,16 +291,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       TextButton(
                         onPressed: () async {
                           if (_labNameController.text.isNotEmpty) {
-                            final authProvider = Provider.of<AuthProvider>(
-                                context,
-                                listen: false);
-                            final success = await authProvider
-                                .addLab(_labNameController.text);
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            final success = await authProvider.addLab(_labNameController.text);
                             if (success) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Lab added successfully')),
+                                const SnackBar(content: Text('Lab added successfully')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to add lab')),
                               );
                             }
                           }
@@ -310,6 +310,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     ],
                   ),
                 );
+              },
+            ),
+            ListTile(
+              title: const Text('Lab Details'),
+              onTap: () {
+                Navigator.pushNamed(context, '/lab-management');
               },
             ),
             ListTile(

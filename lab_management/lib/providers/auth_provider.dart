@@ -6,8 +6,7 @@ class AuthProvider with ChangeNotifier {
   static const String serverIP = 'localhost';
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
   String? loggedInUser;
   String? userRole;
   final Map<String, String?> bookings = {};
@@ -15,15 +14,16 @@ class AuthProvider with ChangeNotifier {
   String? selectedLab;
 
   AuthProvider() {
-    print('AuthProvider initialized');
-    fetchLabs().then((_) {
-      print('Labs fetched: $availableLabs');
-      if (availableLabs.isNotEmpty) {
-        selectedLab = availableLabs[0];
-        print('Selected lab: $selectedLab');
-        fetchBookings();
-      }
-    });
+    fetchLabs();
+  }
+
+  Future<void> fetchLabs() async {
+    final response = await http.get(Uri.parse('http://$serverIP/lab-management-backend/api/fetch_labs.php'));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      availableLabs = List<String>.from(data['labs']);
+      notifyListeners();
+    }
   }
 
   Future<void> fetchBookings() async {
@@ -56,20 +56,6 @@ class AuthProvider with ChangeNotifier {
       });
 
       print('Final bookings map: $bookings');
-      notifyListeners();
-    }
-  }
-
-  Future<void> fetchLabs() async {
-    print('Fetching labs...');
-    final response = await http.get(
-      Uri.parse('http://$serverIP/lab-management-backend/api/fetch_labs.php'),
-    );
-    print('Labs API response: ${response.body}');
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      availableLabs = List<String>.from(data['labs']);
       notifyListeners();
     }
   }
@@ -239,7 +225,9 @@ class AuthProvider with ChangeNotifier {
     if (response.statusCode == 200) {
       await fetchLabs();
       return true;
+    } else {
+      print('Error: Received status code ${response.statusCode}');
+      return false;
     }
-    return false;
   }
 }
