@@ -411,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
               right: 20,
               bottom: 80,
               child: Container(
-                width: 350,
+                width: 450,
                 height: 500,
                 decoration: BoxDecoration(
                   color: Colors.white,
