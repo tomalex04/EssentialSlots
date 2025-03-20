@@ -1,16 +1,15 @@
 from flask import Flask, request, jsonify
 import json
-import requests
 import logging
 import os
 import re
 from flask_cors import CORS
 import mysql.connector
+import ollama
 
 app = Flask(__name__)
 CORS(app)
 
-OLLAMA_API_URL = "http://localhost:11434/api/generate"  # Correct Ollama API URL
 DATABASE_CONFIG = {
     'user': 'root',
     'password': 'phpmyadmin',
@@ -86,25 +85,16 @@ def generate():
         combined_prompt = input_text + "\n\n###\n\n" + combined_document_content
         app.logger.debug(f"Combined prompt: {combined_prompt}")
 
-        # Send the combined prompt to the language model
-        with requests.post(OLLAMA_API_URL, json={'model': 'llama3.2:1b', 'prompt': combined_prompt}, stream=True) as response:
-            response.raise_for_status()
-            full_response = ""
+        # Use the ollama library to generate the response
+        client = ollama.Client()
+        response = client.generate(model='llama3.2:1b', prompt=combined_prompt)
+        full_response = response['response']
 
-            for line in response.iter_lines():
-                if line:
-                    try:
-                        chunk = line.decode('utf-8')  # Decode JSON line
-                        json_chunk = json.loads(chunk)  # Parse JSON
-                        full_response += json_chunk.get("response", "")  # Append response text
-                    except json.JSONDecodeError as e:
-                        app.logger.error(f"JSON decoding error: {e}")
+        return jsonify({'response': full_response})
 
-            return jsonify({'response': full_response})
-
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f"Request to Ollama failed: {e}")
-        return jsonify({'error': 'Failed to get response from Ollama'}), 500
+    except Exception as e:
+        app.logger.error(f"Failed to generate response: {e}")
+        return jsonify({'error': 'Failed to generate response'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

@@ -102,28 +102,51 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<String?> register() async {
-    String? validationError = validateInputs();
-    if (validationError != null) return validationError;
+    final username = usernameController.text;
+    final password = passwordController.text;
+    final confirmPassword = confirmPasswordController.text;
 
-    if (passwordController.text != confirmPasswordController.text) {
-      return 'Passwords do not match.';
+    // Validate password
+    final passwordError = validatePassword(password);
+    if (passwordError != null) {
+      return passwordError;
+    }
+
+    // Check if passwords match
+    if (password != confirmPassword) {
+      return 'Passwords do not match';
     }
 
     final response = await http.post(
       Uri.parse('http://$serverIP/lab-management-backend/api/register.php'),
       body: {
-        'username': usernameController.text,
-        'password': passwordController.text,
+        'username': username,
+        'password': password,
       },
     );
 
-    final responseData = json.decode(response.body);
-
-    if (responseData['message'] == 'Registration successful') {
-      return null;
+    final responseBody = jsonDecode(response.body);
+    if (response.statusCode == 200 && responseBody['message'] != null) {
+      return null; // Registration successful
     } else {
-      return responseData['error'] ?? 'Registration failed. Please try again.';
+      return responseBody['error'] ?? 'Registration failed';
     }
+  }
+
+  String? validatePassword(String password) {
+    if (password.length <= 8) {
+      return 'Password must be greater than 8 characters';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) {
+      return 'Password must contain at least one special character';
+    }
+    return null;
   }
 
   String? validateInputs() {
