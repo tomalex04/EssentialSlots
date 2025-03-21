@@ -87,7 +87,7 @@ def generate():
 
         # Use the ollama library to generate the response
         client = ollama.Client()
-        response = client.generate(model='llama3.2:1b', prompt=combined_prompt)
+        response = client.generate(model='hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF', prompt=combined_prompt)
         full_response = response['response']
 
         return jsonify({'response': full_response})
