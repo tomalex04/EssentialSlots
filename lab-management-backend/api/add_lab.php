@@ -10,20 +10,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $base_directory = '/home/tom/Desktop/lab_files/';
     $folder_path = $base_directory . $lab_name;
 
-    // Ensure the base directory exists
+    // Ensure the base directory exists with proper permissions
     if (!is_dir($base_directory)) {
-        if (!mkdir($base_directory, 0777, true)) {
-            echo json_encode(['error' => 'Failed to create base directory: ' . error_get_last()['message']]);
+        if (!@mkdir($base_directory, 0777, true)) {
+            error_log('Failed to create base directory: ' . error_get_last()['message']);
+            echo json_encode(['error' => 'Failed to create base directory. Please ensure the web server has write permissions to ' . $base_directory]);
             exit;
         }
+        // Set permissions to ensure web server can write
+        chmod($base_directory, 0777);
     }
 
     // Ensure the lab-specific directory exists
     if (!is_dir($folder_path)) {
-        if (!mkdir($folder_path, 0777, true)) {
-            echo json_encode(['error' => 'Failed to create lab directory: ' . error_get_last()['message']]);
+        if (!@mkdir($folder_path, 0777, true)) {
+            error_log('Failed to create lab directory: ' . error_get_last()['message']);
+            echo json_encode(['error' => 'Failed to create lab directory. Please ensure the web server has write permissions to ' . $base_directory]);
             exit;
         }
+        // Set permissions to ensure web server can write
+        chmod($folder_path, 0777);
     }
 
     // Insert into labs table

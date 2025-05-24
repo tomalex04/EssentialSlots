@@ -26,3 +26,10 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+# Ignore specific warnings related to file_picker on desktop platforms
+analyzer:
+  errors:
+    # Suppress warnings about plugin implementations
+    plugin_platform_interface_is_not_provided: ignore 
+    missing_inline_implementation: ignore
