@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lab_management/providers/auth_provider.dart';
+import 'package:lab_management/widgets/app_settings_controls.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -184,7 +185,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   void logout() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.loggedInUser = null;
+    authProvider.logout();
     Navigator.pushReplacementNamed(context, '/');
   }
 
@@ -211,9 +212,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       appBar: AppBar(
         title: const Text('Admin Home'),
         actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh'),
+            onPressed: () {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              authProvider.fetchBookings();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Refreshing data...')),
+              );
+            },
+          ),
           Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.settings),
+            builder: (context) => TextButton(
+              child: const Text('Settings'),
               onPressed: () {
                 Scaffold.of(context).openEndDrawer();
               },
@@ -271,6 +283,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               },
             ),
             ListTile(
+              title: const Text('View Pending Requests'),
+              onTap: () {
+                Navigator.of(context).pushNamed('/requests');
+              },
+            ),
+            ListTile(
               title: const Text('Add New Lab'),
               onTap: () {
                 showDialog(
@@ -316,6 +334,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               title: const Text('Logout'),
               onTap: logout,
             ),
+            const Divider(),
+            const AppSettingsControls(),
           ],
         ),
       ),
@@ -489,15 +509,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                         ? Colors.blue.withOpacity(0.5)
                                         : authProvider.bookings[key] ==
                                                 'Deactivated by Admin'
-                                            ? Colors.grey
-                                            : authProvider.bookings[key] == null
-                                                ? Colors.green
-                                                : authProvider.bookings[key] ==
-                                                        authProvider
-                                                            .loggedInUser
-                                                    ? Colors.red
-                                                    : Colors
-                                                        .yellow, // This should reflect if it is booked by another user
+                                            ? Colors.grey // Deactivated slots
+                                            : authProvider.bookings[key] != null
+                                                ? Colors.red // All booked slots are red
+                                                : authProvider.requests[key] != null
+                                                    ? Colors.yellow // All pending requests are yellow
+                                                    : Colors.green, // Available slots
                                     height: 50,
                                     child: Center(
                                       child: Text(
@@ -506,7 +523,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                             ? 'Deactivated by Admin'
                                             : authProvider.bookings[key] != null
                                                 ? 'Booked by ${authProvider.bookings[key]}'
-                                                : 'Available',
+                                                : authProvider.requests[key] != null
+                                                    ? 'Request by ${authProvider.requests[key]}'
+                                                    : 'Available',
+                                        textAlign: TextAlign.center,
                                       ),
                                     ),
                                   ),

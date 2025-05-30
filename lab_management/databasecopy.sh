@@ -5,7 +5,7 @@ MYSQL_USER="root"
 MYSQL_PASS="phpmyadmin"
 
 # Export complete database
-mysqldump -u "$MYSQL_USER" -p"$MYSQL_PASS" "$DB_NAME" > lab_management_dump.sql
+mysqldump -u "$MYSQL_USER" -p"$MYSQL_PASS" "$DB_NAME" > lab_management_dump_new.sql
 
 # Show structure
 echo "Database Structure:"
@@ -16,4 +16,4 @@ FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = '$DB_NAME'
 GROUP BY TABLE_NAME;"
 
-echo "Database exported to lab_management_dump.sql"
+echo "Database exported to lab_management_dump_new.sql"

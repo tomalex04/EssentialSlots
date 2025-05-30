@@ -15,7 +15,7 @@ if (!$room_name) {
 }
 
 // Fetch bookings for specific room
-$stmt = $conn->prepare("SELECT username, day, time FROM bookings WHERE room_name = ?");
+$stmt = $conn->prepare("SELECT username, day, time, description FROM bookings WHERE room_name = ?");
 $stmt->bind_param("s", $room_name);
 $stmt->execute();
 $bookings_result = $stmt->get_result();

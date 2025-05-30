@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lab_management/providers/auth_provider.dart';
+import 'package:lab_management/widgets/app_settings_controls.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
     '2.45-3.45'
   ];
   final Set<String> selectedSlots = {};
+  final TextEditingController _descriptionController = TextEditingController();
   bool isBooking = false;
 
   @override
@@ -67,8 +69,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void toggleBooking(String key) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.bookings[key] == null ||
-        authProvider.bookings[key] == authProvider.loggedInUser) {
+    // Allow selecting a slot if:
+    // 1. It's available (not booked and no pending requests), OR
+    // 2. The user already has a request for this slot (to cancel it)
+    if (authProvider.bookings[key] == null && 
+        (authProvider.requests[key] == null || 
+         authProvider.requests[key] == authProvider.loggedInUser)) {
       setState(() {
         if (selectedSlots.contains(key)) {
           selectedSlots.remove(key);
@@ -76,40 +82,99 @@ class _HomeScreenState extends State<HomeScreen> {
           selectedSlots.add(key);
         }
       });
+    } else if (authProvider.requests[key] != null && 
+               authProvider.requests[key] != authProvider.loggedInUser) {
+      // Inform the user that this slot already has a pending request from another user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('This slot already has a pending request from ${authProvider.requests[key]}'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      // Return early, don't allow selection of this slot
+      return;
     }
   }
 
   void submitBooking() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     bool allSuccess = true;
+    String description = _descriptionController.text.trim();
+    List<String> failedSlots = [];
 
+    // Before making requests, check if any slots already have pending requests
     for (var slot in selectedSlots) {
       final parts = slot.split('-');
-      final day =
-          '${parts[0]}-${parts[1]}-${parts[2]}'; // Ensure full date format
+      final day = '${parts[0]}-${parts[1]}-${parts[2]}';
+      final time = parts[3];
+      
+      // If someone else has already requested this slot, don't attempt to request it
+      if (authProvider.requests[slot] != null && 
+          authProvider.requests[slot] != authProvider.loggedInUser) {
+        allSuccess = false;
+        failedSlots.add('$day (Time: ${time})');
+        continue;
+      }
+    }
+    
+    // If there are failed slots, notify the user and don't proceed
+    if (!allSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Some slots already have pending requests: ${failedSlots.join(", ")}'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      // Refresh data to get the latest state
+      await authProvider.fetchBookings();
+      setState(() {
+        selectedSlots.clear();
+        isBooking = false;
+        _descriptionController.clear();
+      });
+      return;
+    }
+
+    // Proceed with requesting the slots
+    for (var slot in selectedSlots) {
+      final parts = slot.split('-');
+      final day = '${parts[0]}-${parts[1]}-${parts[2]}';
       final time = parts[3];
 
-      bool success = await authProvider.bookSlot(day, time);
+      bool success = await authProvider.requestSlot(day, time, description: description);
       if (success) {
         setState(() {
-          authProvider.bookings[slot] = authProvider.loggedInUser;
+          authProvider.requests[slot] = authProvider.loggedInUser;
+          if (description.isNotEmpty) {
+            authProvider.descriptions[slot] = description;
+          }
         });
       } else {
         allSuccess = false;
+        failedSlots.add('$day (Time: ${time})');
       }
-      authProvider.fetchBookings();
     }
+
+    // Refresh data
+    authProvider.fetchBookings();
 
     if (allSuccess) {
       setState(() {
         selectedSlots.clear();
         isBooking = false;
+        _descriptionController.clear();
       });
-    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Some bookings failed'),
-          duration: Duration(seconds: 1),
+          content: Text('Slot requests submitted successfully'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Some requests failed: ${failedSlots.join(", ")}. The slots may already be requested by another user.'),
+          duration: Duration(seconds: 3),
         ),
       );
     }
@@ -119,12 +184,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       selectedSlots.clear();
       isBooking = false;
+      _descriptionController.clear();
     });
   }
 
   void logout() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.loggedInUser = null;
+    authProvider.logout();
     Navigator.pushReplacementNamed(context, '/');
   }
 
@@ -137,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       selectedSlots.clear();
       isBooking = false;
+      _descriptionController.clear();
     });
   }
 
@@ -148,9 +215,20 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh'),
+            onPressed: () {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              authProvider.fetchBookings();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Refreshing data...')),
+              );
+            },
+          ),
           Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.settings),
+            builder: (context) => TextButton(
+              child: const Text('Settings'),
               onPressed: () {
                 Scaffold.of(context).openEndDrawer();
               },
@@ -188,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             ListTile(
-              title: const Text('Book Cell'),
+              title: const Text('Request Slot'),
               onTap: () {
                 setState(() {
                   isBooking = true;
@@ -200,6 +278,8 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Logout'),
               onTap: logout,
             ),
+            const Divider(),
+            const AppSettingsControls(),
           ],
         ),
       ),
@@ -232,12 +312,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
-                    if (isBooking)
+                    if (isBooking) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        child: TextField(
+                          controller: _descriptionController,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter a short description (optional)',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          maxLength: 100,
+                        ),
+                      ),
                       Row(
                         children: [
                           ElevatedButton(
                             onPressed: submitBooking,
-                            child: const Text('Book Selected'),
+                            child: const Text('Request Selected'),
                           ),
                           const SizedBox(width: 10),
                           ElevatedButton(
@@ -246,6 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
+                    ],
                     const SizedBox(height: 20),
                     Expanded(
                       child: SingleChildScrollView(
@@ -305,28 +398,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ? Colors.blue.withOpacity(0.5)
                                                 : authProvider.bookings[key] ==
                                                         'Deactivated by Admin'
-                                                    ? Colors
-                                                        .grey // Ensure this check comes first
-                                                    : authProvider.bookings[key] ==
-                                                            null
-                                                        ? Colors.green
-                                                        : authProvider
-                                                                    .bookings[
-                                                                key] ==
-                                                            authProvider
-                                                                .loggedInUser
-                                                            ? Colors.red
-                                                            : Colors.yellow,
+                                                    ? Colors.grey // Deactivated slots
+                                                    : authProvider.bookings[key] != null
+                                                        ? Colors.red // Booked slots - always red for all users
+                                                        : authProvider.requests[key] != null
+                                                            ? Colors.yellow // Requested slots - always yellow
+                                                            : Colors.green, // Available slots
                                             height: 50,
                                             child: Center(
                                               child: Text(
                                                 authProvider.bookings[key] ==
                                                         'Deactivated by Admin'
-                                                    ? 'Deactivated by Admin'
-                                                    : authProvider.bookings[key] !=
-                                                            null
-                                                        ? 'Booked by ${authProvider.bookings[key]}'
-                                                        : 'Available',
+                                                    ? 'Deactivated'
+                                                    : authProvider.bookings[key] != null
+                                                        ? authProvider.descriptions[key] != null && authProvider.descriptions[key]!.isNotEmpty
+                                                            ? '${authProvider.bookings[key]}: ${authProvider.descriptions[key]}'
+                                                            : 'Booked by ${authProvider.bookings[key]}'
+                                                        : authProvider.requests[key] != null
+                                                            ? 'Request by ${authProvider.requests[key]}'
+                                                            : 'Available',
+                                                textAlign: TextAlign.center,
                                               ),
                                             ),
                                           )),

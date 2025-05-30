@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:lab_management/services/dio_client.dart';
+import 'package:dio/dio.dart';
 
 class AuthProvider with ChangeNotifier {
-  static const String serverIP = 'localhost/lab_management';
+  static const String serverIP = '192.168.1.41';
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
@@ -11,19 +12,30 @@ class AuthProvider with ChangeNotifier {
   String? loggedInUser;
   String? userRole;
   final Map<String, String?> bookings = {};
+  final Map<String, String?> requests = {}; // New map to track slot requests
+  final Map<String, String?> descriptions = {}; // Map to store descriptions for slots
+  List<List<dynamic>> pendingRequests = []; // List to store pending requests for admin
   List<String> availableLabs = [];
   String? selectedLab;
+  late DioClient _dioClient;
 
   AuthProvider() {
     print('AuthProvider initialized');
-    fetchLabs().then((_) {
-      print('Labs fetched: $availableLabs');
-      if (availableLabs.isNotEmpty) {
-        selectedLab = availableLabs[0];
-        print('Selected lab: $selectedLab');
-        fetchBookings();
-      }
-    });
+    _initDio();
+  }
+
+  Future<void> _initDio() async {
+    _dioClient = DioClient();
+    await _dioClient.init();
+    
+    // After initializing Dio, fetch the labs
+    await fetchLabs();
+    print('Labs fetched: $availableLabs');
+    if (availableLabs.isNotEmpty) {
+      selectedLab = availableLabs[0];
+      print('Selected lab: $selectedLab');
+      fetchBookings();
+    }
   }
 
   Future<void> fetchBookings() async {
@@ -33,44 +45,101 @@ class AuthProvider with ChangeNotifier {
     }
 
     print('Fetching bookings for: $selectedLab');
-    final response = await http.get(
-      Uri.parse(
-          'http://$serverIP/lab-management-backend/api/fetch_bookings.php?room_name=$selectedLab'),
-    );
-    print('Bookings API response: ${response.body}');
+    try {
+      final response = await _dioClient.dio.get(
+        'api/fetch_bookings.php',
+        queryParameters: {'room_name': selectedLab},
+      );
+      
+      print('Bookings API response: ${response.data}');
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      bookings.clear();
+      if (response.statusCode == 200) {
+        final data = response.data;
+        bookings.clear();
+        requests.clear(); // Clear requests map
+        descriptions.clear(); // Clear descriptions map
 
-      data['bookings'].forEach((booking) {
-        String key = '${booking['day']}-${booking['time']}';
-        print('Processing booking: $key = ${booking['username']}');
-        bookings[key] = booking['username'];
-      });
+        data['bookings'].forEach((booking) {
+          String key = '${booking['day']}-${booking['time']}';
+          print('Processing booking: $key = ${booking['username']}');
+          bookings[key] = booking['username'];
+          if (booking['description'] != null) {
+            descriptions[key] = booking['description'];
+          }
+        });
 
-      data['deactivations'].forEach((deactivation) {
-        String key = '${deactivation['day']}-${deactivation['time']}';
-        print('Processing deactivation: $key');
-        bookings[key] = 'Deactivated by Admin';
-      });
+        data['deactivations'].forEach((deactivation) {
+          String key = '${deactivation['day']}-${deactivation['time']}';
+          print('Processing deactivation: $key');
+          bookings[key] = 'Deactivated by Admin';
+        });
 
-      print('Final bookings map: $bookings');
-      notifyListeners();
+        // Also fetch requests for the same lab
+        await fetchRequests();
+
+        print('Final bookings map: $bookings');
+        print('Final requests map: $requests');
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error fetching bookings: $e');
+    }
+  }
+
+  // New method to fetch pending requests
+  Future<void> fetchRequests() async {
+    if (selectedLab == null) return;
+
+    try {
+      final response = await _dioClient.dio.get(
+        'api/fetch_requests.php',
+        queryParameters: {'room_name': selectedLab},
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        
+        // For admin view - full details of requests
+        pendingRequests = List<List<dynamic>>.from(
+          data['requests'].map((request) => [
+            request['id'],
+            request['username'],
+            request['day'],
+            request['time'],
+            request['description'] ?? '',
+            request['competing_requests'] ?? 0
+          ])
+        );
+
+        // For calendar view - mark slots with pending requests
+        data['requests'].forEach((request) {
+          String key = '${request['day']}-${request['time']}';
+          requests[key] = request['username'];
+          if (request['description'] != null) {
+            descriptions[key] = request['description'];
+          }
+        });
+
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error fetching requests: $e');
     }
   }
 
   Future<void> fetchLabs() async {
     print('Fetching labs...');
-    final response = await http.get(
-      Uri.parse('http://$serverIP/lab-management-backend/api/fetch_labs.php'),
-    );
-    print('Labs API response: ${response.body}');
+    try {
+      final response = await _dioClient.dio.get('api/fetch_labs.php');
+      print('Labs API response: ${response.data}');
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      availableLabs = List<String>.from(data['labs']);
-      notifyListeners();
+      if (response.statusCode == 200) {
+        final data = response.data;
+        availableLabs = List<String>.from(data['labs']);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error fetching labs: $e');
     }
   }
 
@@ -78,39 +147,48 @@ class AuthProvider with ChangeNotifier {
     String? validationError = validateInputs();
     if (validationError != null) return validationError;
 
-    final response = await http.post(
-      Uri.parse('http://$serverIP/lab-management-backend/api/auth.php'),
-      body: {
-        'username': usernameController.text,
-        'password': passwordController.text,
-      },
-    );
+    try {
+      final response = await _dioClient.dio.post(
+        'api/auth.php',
+        data: FormData.fromMap({
+          'username': usernameController.text,
+          'password': passwordController.text,
+        }),
+      );
 
-    final responseData = json.decode(response.body);
+      final responseData = response.data;
 
-    if (responseData['message'] == 'Login successful') {
-      loggedInUser = usernameController.text;
-      userRole = await getUserRole(usernameController.text);
-      notifyListeners();
-      return null;
-    } else {
-      return responseData['error'] ?? 'Login failed. Please try again.';
+      if (responseData['message'] == 'Login successful') {
+        loggedInUser = usernameController.text;
+        userRole = await getUserRole(usernameController.text);
+        notifyListeners();
+        return null;
+      } else {
+        return responseData['error'] ?? 'Login failed. Please try again.';
+      }
+    } catch (e) {
+      print('Error during login: $e');
+      return 'Connection error. Please try again.';
     }
   }
 
   Future<String?> getUserRole(String username) async {
-    final response = await http.post(
-      Uri.parse(
-          'http://$serverIP/lab-management-backend/api/get_user_role.php'),
-      body: {
-        'username': username,
-      },
-    );
+    try {
+      final response = await _dioClient.dio.post(
+        'api/get_user_role.php',
+        data: FormData.fromMap({
+          'username': username,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data['role'];
-    } else {
+      if (response.statusCode == 200) {
+        final data = response.data;
+        return data['role'];
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
       return null;
     }
   }
@@ -123,20 +201,25 @@ class AuthProvider with ChangeNotifier {
       return 'Passwords do not match.';
     }
 
-    final response = await http.post(
-      Uri.parse('http://$serverIP/lab-management-backend/api/register.php'),
-      body: {
-        'username': usernameController.text,
-        'password': passwordController.text,
-      },
-    );
+    try {
+      final response = await _dioClient.dio.post(
+        'api/register.php',
+        data: FormData.fromMap({
+          'username': usernameController.text,
+          'password': passwordController.text,
+        }),
+      );
 
-    final responseData = json.decode(response.body);
+      final responseData = response.data;
 
-    if (responseData['message'] == 'Registration successful') {
-      return null;
-    } else {
-      return responseData['error'] ?? 'Registration failed. Please try again.';
+      if (responseData['message'] == 'Registration successful') {
+        return null;
+      } else {
+        return responseData['error'] ?? 'Registration failed. Please try again.';
+      }
+    } catch (e) {
+      print('Error during registration: $e');
+      return 'Connection error. Please try again.';
     }
   }
 
@@ -151,71 +234,64 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> bookSlot(String day, String time) async {
-    print('Booking slot: day=$day, time=$time, username=$loggedInUser');
-    final response = await http.post(
-      Uri.parse('http://$serverIP/lab-management-backend/api/book.php'),
-      body: {
-        'username': loggedInUser,
-        'day': day,
-        'time': time,
-        'room_name': selectedLab,
-      },
-    );
+    try {
+      final response = await _dioClient.dio.post(
+        'api/book.php',
+        data: FormData.fromMap({
+          'username': loggedInUser,
+          'day': day,
+          'time': time,
+          'room_name': selectedLab,
+        }),
+      );
 
-    print('Response status: ${response.statusCode}');
-    print('Response body: ${response.body}');
+      final responseData = response.data;
 
-    final responseData = json.decode(response.body);
-
-    if (responseData['message'] == 'Slot booked') {
-      // This block is for when the booking is added
-      bookings['$day-$time'] = loggedInUser;
-      notifyListeners();
-      return true;
-    } else if (responseData['message'] == 'Booking removed') {
-      // This block is for when the booking is removed
-      bookings.remove('$day-$time');
-      notifyListeners();
-      return true;
-    } else {
-      print('Booking failed: ${responseData['error']}');
+      if (responseData['message'] == 'Slot booked') {
+        // This block is for when the booking is added
+        bookings['$day-$time'] = loggedInUser;
+        notifyListeners();
+        return true;
+      } else if (responseData['message'] == 'Booking removed') {
+        // This block is for when the booking is removed
+        bookings.remove('$day-$time');
+        notifyListeners();
+        return true;
+      } else {
+        print('Booking failed: ${responseData['error']}');
+        return false;
+      }
+    } catch (e) {
+      print('Error booking slot: $e');
       return false;
     }
   }
 
   Future<bool> activateSlot(String day, String time) async {
     try {
-      final response = await http.post(
-        Uri.parse('http://$serverIP/lab-management-backend/api/activate.php'),
-        body: {
+      final response = await _dioClient.dio.post(
+        'api/activate.php',
+        data: FormData.fromMap({
           'username': loggedInUser,
           'day': day,
           'time': time,
           'room_name': selectedLab,
-        },
+        }),
       );
 
-      print('Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
       if (response.statusCode == 200) {
-        try {
-          // Attempt to parse the JSON
-          final responseData = json.decode(response.body);
+        final responseData = response.data;
 
-          if (responseData['message'] == 'Slot deactivated successfully') {
-            bookings['$day-$time'] = 'Deactivated by admin';
-            notifyListeners();
-            return true;
-          } else if (responseData['message'] == 'Slot activated successfully') {
-            bookings.remove('$day-$time');
-            notifyListeners();
-            return true;
-          } else {
-            print('Unexpected message: ${responseData['message']}');
-            return false;
-          }
-        } catch (e) {
-          print('Error decoding JSON: $e');
+        if (responseData['message'] == 'Slot deactivated successfully') {
+          bookings['$day-$time'] = 'Deactivated by admin';
+          notifyListeners();
+          return true;
+        } else if (responseData['message'] == 'Slot activated successfully') {
+          bookings.remove('$day-$time');
+          notifyListeners();
+          return true;
+        } else {
+          print('Unexpected message: ${responseData['message']}');
           return false;
         }
       } else {
@@ -223,23 +299,123 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      print('Error: $e');
+      print('Error activating slot: $e');
       return false;
     }
   }
 
   Future<bool> addLab(String labName) async {
-    final response = await http.post(
-      Uri.parse('http://$serverIP/lab-management-backend/api/add_lab.php'),
-      body: {
-        'lab_name': labName,
-        'username': loggedInUser,
-      },
-    );
-    if (response.statusCode == 200) {
-      await fetchLabs();
-      return true;
+    try {
+      final response = await _dioClient.dio.post(
+        'api/add_lab.php',
+        data: FormData.fromMap({
+          'lab_name': labName,
+          'username': loggedInUser,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        await fetchLabs();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Error adding lab: $e');
+      return false;
     }
-    return false;
+  }
+
+  Future<bool> requestSlot(String day, String time, {String description = ''}) async {
+    print('Requesting slot: day=$day, time=$time, username=$loggedInUser, description=$description');
+    try {
+      final response = await _dioClient.dio.post(
+        'api/request_slot.php',
+        data: FormData.fromMap({
+          'username': loggedInUser,
+          'day': day,
+          'time': time,
+          'room_name': selectedLab,
+          'description': description,
+        }),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.data}');
+
+      final responseData = response.data;
+
+      if (responseData['message'] == 'Request submitted') {
+        // Mark this slot as requested by the current user
+        requests['$day-$time'] = loggedInUser;
+        if (description.isNotEmpty) {
+          descriptions['$day-$time'] = description;
+        }
+        notifyListeners();
+        return true;
+      } else if (responseData['message'] == 'Request cancelled') {
+        // Remove this request
+        requests.remove('$day-$time');
+        descriptions.remove('$day-$time');
+        notifyListeners();
+        return true;
+      } else {
+        if (responseData['error'] == 'Slot already has a pending request from another user') {
+          // Another user already requested this slot
+          print('Request failed: ${responseData['error']}');
+          // Refresh data to show the latest state
+          await fetchBookings();
+        } else {
+          print('Request failed: ${responseData['error']}');
+        }
+        return false;
+      }
+    } catch (e) {
+      print('Error requesting slot: $e');
+      return false;
+    }
+  }
+
+  // New method to handle request approvals/rejections
+  Future<bool> handleRequest(int requestId, String action) async {
+    print('Handling request: id=$requestId, action=$action');
+    try {
+      final response = await _dioClient.dio.post(
+        'api/handle_request.php',
+        data: FormData.fromMap({
+          'request_id': requestId.toString(),
+          'action': action,
+          'admin_username': loggedInUser,
+        }),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.data}');
+
+      final responseData = response.data;
+
+      if (responseData['message'] != null && !responseData['message'].toString().contains('failed')) {
+        // Refresh data to show the latest state
+        await fetchBookings();
+        return true;
+      } else {
+        print('Request handling failed: ${responseData['error']}');
+        return false;
+      }
+    } catch (e) {
+      print('Error handling request: $e');
+      return false;
+    }
+  }
+
+  // Method to logout
+  void logout() {
+    // Clear session cookies
+    _dioClient.clearCookies();
+    
+    // Reset user state
+    loggedInUser = null;
+    userRole = null;
+    
+    notifyListeners();
   }
 }
