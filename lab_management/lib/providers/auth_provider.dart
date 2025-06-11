@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'package:lab_management/services/dio_client.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthProvider with ChangeNotifier {
-  static const String serverIP = '192.168.1.41';
+  static const String serverIP = 'localhost';
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
   String? loggedInUser;
   String? userRole;
+  String? _sessionToken;
   final Map<String, String?> bookings = {};
   final Map<String, String?> requests = {}; // New map to track slot requests
   final Map<String, String?> descriptions = {}; // Map to store descriptions for slots
@@ -28,6 +29,9 @@ class AuthProvider with ChangeNotifier {
     _dioClient = DioClient();
     await _dioClient.init();
     
+    // Check for existing session token
+    await _loadStoredSession();
+    
     // After initializing Dio, fetch the labs
     await fetchLabs();
     print('Labs fetched: $availableLabs');
@@ -36,6 +40,50 @@ class AuthProvider with ChangeNotifier {
       print('Selected lab: $selectedLab');
       fetchBookings();
     }
+  }
+
+  // Load stored session token and verify it
+  Future<void> _loadStoredSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedToken = prefs.getString('session_token');
+    
+    if (storedToken != null) {
+      // Verify the token with the server
+      try {
+        final response = await _dioClient.dio.post(
+          'api/verify_session.php',
+          data: FormData.fromMap({'session_token': storedToken}),
+        );
+        
+        if (response.statusCode == 200 && response.data['username'] != null) {
+          _sessionToken = storedToken;
+          loggedInUser = response.data['username'];
+          userRole = response.data['role'];
+          print('Session restored for user: $loggedInUser');
+          notifyListeners();
+        } else {
+          // Invalid token, remove it
+          await prefs.remove('session_token');
+        }
+      } catch (e) {
+        print('Error verifying session token: $e');
+        await prefs.remove('session_token');
+      }
+    }
+  }
+
+  // Store session token
+  Future<void> _storeSessionToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('session_token', token);
+    _sessionToken = token;
+  }
+
+  // Clear session token
+  Future<void> _clearSessionToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('session_token');
+    _sessionToken = null;
   }
 
   Future<void> fetchBookings() async {
@@ -161,6 +209,12 @@ class AuthProvider with ChangeNotifier {
       if (responseData['message'] == 'Login successful') {
         loggedInUser = usernameController.text;
         userRole = await getUserRole(usernameController.text);
+        
+        // Store session token if provided
+        if (responseData['session_token'] != null) {
+          await _storeSessionToken(responseData['session_token']);
+        }
+        
         notifyListeners();
         return null;
       } else {
@@ -233,39 +287,7 @@ class AuthProvider with ChangeNotifier {
     return null;
   }
 
-  Future<bool> bookSlot(String day, String time) async {
-    try {
-      final response = await _dioClient.dio.post(
-        'api/book.php',
-        data: FormData.fromMap({
-          'username': loggedInUser,
-          'day': day,
-          'time': time,
-          'room_name': selectedLab,
-        }),
-      );
 
-      final responseData = response.data;
-
-      if (responseData['message'] == 'Slot booked') {
-        // This block is for when the booking is added
-        bookings['$day-$time'] = loggedInUser;
-        notifyListeners();
-        return true;
-      } else if (responseData['message'] == 'Booking removed') {
-        // This block is for when the booking is removed
-        bookings.remove('$day-$time');
-        notifyListeners();
-        return true;
-      } else {
-        print('Booking failed: ${responseData['error']}');
-        return false;
-      }
-    } catch (e) {
-      print('Error booking slot: $e');
-      return false;
-    }
-  }
 
   Future<bool> activateSlot(String day, String time) async {
     try {
@@ -300,6 +322,39 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       print('Error activating slot: $e');
+      return false;
+    }
+  }
+
+  Future<bool> removeBooking(String day, String time) async {
+    try {
+      final response = await _dioClient.dio.post(
+        'api/remove_booking.php',
+        data: FormData.fromMap({
+          'day': day,
+          'time': time,
+          'room_name': selectedLab,
+          'admin_username': loggedInUser,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData['message'] == 'Booking removed successfully') {
+          // Remove from local bookings map
+          bookings.remove('$day-$time');
+          notifyListeners();
+          return true;
+        } else {
+          print('Failed to remove booking: ${responseData['error']}');
+          return false;
+        }
+      } else {
+        print('Error: Received status code ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Error removing booking: $e');
       return false;
     }
   }
@@ -408,7 +463,22 @@ class AuthProvider with ChangeNotifier {
   }
 
   // Method to logout
-  void logout() {
+  Future<void> logout() async {
+    // Clear session token on server if we have one
+    if (_sessionToken != null) {
+      try {
+        await _dioClient.dio.post(
+          'api/logout.php',
+          data: FormData.fromMap({'session_token': _sessionToken}),
+        );
+      } catch (e) {
+        print('Error during logout: $e');
+      }
+    }
+    
+    // Clear local session token
+    await _clearSessionToken();
+    
     // Clear session cookies
     _dioClient.clearCookies();
     

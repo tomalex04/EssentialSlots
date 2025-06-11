@@ -17,6 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'Missing required fields']);
         exit;
     }
+    
+    // Validate description - must have at least 2 non-whitespace characters
+    if (strlen(trim($description)) < 2) {
+        echo json_encode(['error' => 'Description must contain at least 2 characters']);
+        exit;
+    }
 
     // Check if slot is deactivated
     $stmt = $conn->prepare("SELECT * FROM deactivations WHERE day = ? AND time = ? AND room_name = ?");

@@ -33,7 +33,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   final Set<String> selectedSlots = {};
   bool isDeactivating = false;
-  bool isBooking = false;
+  bool isRemoving = false;
   final TextEditingController _labNameController = TextEditingController();
 
   void selectDateRange() {
@@ -96,41 +96,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     });
   }
 
-  void submitBooking() async {
+  void toggleRemoval(String key) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    bool allSuccess = true;
-
-    for (var slot in selectedSlots) {
-      final parts = slot.split('-');
-      final day =
-          '${parts[0]}-${parts[1]}-${parts[2]}'; // Ensure full date format
-      final time = parts[3];
-
-      bool success = await authProvider.bookSlot(day, time);
-      if (success) {
-        setState(() {
-          authProvider.bookings[slot] = authProvider.loggedInUser;
-        });
-      } else {
-        allSuccess = false;
-      }
-    }
-
-    if (allSuccess) {
+    // Only allow selection of slots that have bookings (not deactivated or empty)
+    if (authProvider.bookings[key] != null && 
+        authProvider.bookings[key] != 'Deactivated by Admin') {
       setState(() {
-        selectedSlots.clear();
-        isBooking = false;
+        if (selectedSlots.contains(key)) {
+          selectedSlots.remove(key);
+        } else {
+          selectedSlots.add(key);
+        }
       });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Some bookings failed'),
-          duration: Duration(seconds: 1),
-        ),
-      );
     }
-    // Fetch updated bookings after processing
-    authProvider.fetchBookings();
   }
 
   void submitActivation() async {
@@ -175,17 +153,90 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     authProvider.fetchBookings();
   }
 
+  void submitRemoval() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    bool allSuccess = true;
+    List<String> removedSlots = [];
+
+    // Show confirmation dialog
+    bool confirmed = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Removal'),
+          content: Text('Are you sure you want to remove ${selectedSlots.length} booking(s)?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Confirm'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+
+    if (!confirmed) return;
+
+    for (var slot in selectedSlots) {
+      final parts = slot.split('-');
+      final day = '${parts[0]}-${parts[1]}-${parts[2]}';
+      final time = parts[3];
+
+      bool success = await authProvider.removeBooking(day, time);
+      if (success) {
+        removedSlots.add(slot);
+      } else {
+        allSuccess = false;
+      }
+    }
+
+    if (allSuccess && removedSlots.isNotEmpty) {
+      setState(() {
+        selectedSlots.clear();
+        isRemoving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${removedSlots.length} booking(s) removed successfully'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else if (removedSlots.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${removedSlots.length} booking(s) removed, but some failed'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to remove bookings'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    
+    // Fetch updated bookings after processing
+    authProvider.fetchBookings();
+  }
+
   void cancelChanges() {
     setState(() {
       selectedSlots.clear();
-      isBooking = false;
       isDeactivating = false;
+      isRemoving = false;
     });
   }
 
-  void logout() {
+  Future<void> logout() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.logout();
+    await authProvider.logout();
     Navigator.pushReplacementNamed(context, '/');
   }
 
@@ -197,8 +248,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     authProvider.fetchBookings();
     setState(() {
       selectedSlots.clear();
-      isBooking = false;
       isDeactivating = false;
+      isRemoving = false;
     });
   }
 
@@ -263,20 +314,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               ),
             ),
             ListTile(
-              title: const Text('Deactivate Days/Cells'),
+              title: const Text('Deactivate/Activate Slots'),
               onTap: () {
                 setState(() {
                   isDeactivating = true;
-                  isBooking = false;
+                  isRemoving = false;
                 });
                 Navigator.of(context).pop();
               },
             ),
             ListTile(
-              title: const Text('Book Days/Cells'),
+              title: const Text('Remove Bookings'),
               onTap: () {
                 setState(() {
-                  isBooking = true;
+                  isRemoving = true;
                   isDeactivating = false;
                 });
                 Navigator.of(context).pop();
@@ -424,13 +475,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              if (isDeactivating || isBooking)
+              if (isDeactivating || isRemoving)
                 Row(
                   children: [
                     ElevatedButton(
-                      onPressed:
-                          isDeactivating ? submitActivation : submitBooking,
-                      child: const Text('Submit Selected'),
+                      onPressed: isDeactivating 
+                          ? submitActivation 
+                          : submitRemoval,
+                      child: Text(isDeactivating 
+                          ? 'Submit Selected' 
+                          : 'Remove Selected'),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: isRemoving ? Colors.white : null,
+                        backgroundColor: isRemoving ? Colors.red : null,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton(
@@ -477,8 +535,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                 onTap: () {
                                   if (isDeactivating) {
                                     toggleActivation('$day-$month-$year');
-                                  } else if (isBooking) {
-                                    toggleBooking('$day-$month-$year');
+                                  } else if (isRemoving) {
+                                    toggleRemoval('$day-$month-$year');
                                   }
                                 },
                                 child: Center(
@@ -500,8 +558,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                   onTap: () {
                                     if (isDeactivating) {
                                       toggleActivation(key);
-                                    } else if (isBooking) {
-                                      toggleBooking(key);
+                                    } else if (isRemoving) {
+                                      toggleRemoval(key);
                                     }
                                   },
                                   child: Container(

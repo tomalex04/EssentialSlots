@@ -44,20 +44,20 @@ class _RequestsScreenState extends State<RequestsScreen> {
   }
 
   String _formatTimeSlot(String time) {
-    // Convert time slot number to readable time
+    // Convert time slot number to readable time with hour number
     switch (time) {
       case '1':
-        return '9:00 - 10:00';
+        return 'Hour 1: 9:00 - 10:00';
       case '2':
-        return '10:00 - 11:00';
+        return 'Hour 2: 10:00 - 11:00';
       case '3':
-        return '11:00 - 12:00';
+        return 'Hour 3: 11:00 - 12:00';
       case '4':
-        return '12:45 - 1:45';
+        return 'Hour 4: 12:45 - 1:45';
       case '5':
-        return '1:45 - 2:45';
+        return 'Hour 5: 1:45 - 2:45';
       case '6':
-        return '2:45 - 3:45';
+        return 'Hour 6: 2:45 - 3:45';
       default:
         return 'Slot $time';
     }

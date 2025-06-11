@@ -101,6 +101,17 @@ class _HomeScreenState extends State<HomeScreen> {
     bool allSuccess = true;
     String description = _descriptionController.text.trim();
     List<String> failedSlots = [];
+    
+    // Validate description - must have at least 2 non-whitespace characters
+    if (description.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Description is required and must contain at least 2 characters'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
 
     // Before making requests, check if any slots already have pending requests
     for (var slot in selectedSlots) {
@@ -188,9 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void logout() {
+  Future<void> logout() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.logout();
+    await authProvider.logout();
     Navigator.pushReplacementNamed(context, '/');
   }
 
@@ -318,7 +329,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: TextField(
                           controller: _descriptionController,
                           decoration: const InputDecoration(
-                            hintText: 'Enter a short description (optional)',
+                            hintText: 'Enter a short description (required)',
+                            labelText: 'Description *',
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),

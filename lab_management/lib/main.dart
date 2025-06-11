@@ -5,6 +5,7 @@ import 'package:lab_management/screens/admin_home_screen.dart';
 import 'package:lab_management/screens/home_screen.dart';
 import 'package:lab_management/screens/register_screen.dart';
 import 'package:lab_management/screens/requests_screen.dart';
+import 'package:lab_management/screens/splash_screen.dart';
 import 'package:lab_management/providers/auth_provider.dart';
 import 'package:lab_management/providers/auth_guard.dart';
 import 'package:lab_management/providers/settings_provider.dart';
@@ -35,12 +36,12 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.blue,
           scaffoldBackgroundColor: Colors.white,
           appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white, // Set AppBar background color to white
-            iconTheme: IconThemeData(color: Colors.black), // Set AppBar icons color to black
-            titleTextStyle: TextStyle(color: Colors.black, fontSize: 20), // Set AppBar title color to black
+            backgroundColor: Colors.white,
+            iconTheme: IconThemeData(color: Colors.black),
+            titleTextStyle: TextStyle(color: Colors.black, fontSize: 20),
           ),
         ),
-        home: const LoginScreen(),
+        home: const SplashScreen(),
         routes: {
           '/admin-home': (context) => AuthGuard(
             requiresAdmin: true,
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
             child: const HomeScreen(),
           ),
           '/register': (context) => const RegisterScreen(),
+          '/login': (context) => const LoginScreen(),
           '/requests': (context) => AuthGuard(
             requiresAdmin: true,
             child: const RequestsScreen(),

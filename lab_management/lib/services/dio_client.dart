@@ -21,7 +21,7 @@ class DioClient {
     if (_isInitialized) return;
     
     dio = Dio(BaseOptions(
-      baseUrl: 'http://192.168.1.41/lab-management-backend/',
+      baseUrl: 'http://localhost/lab-management-backend/',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       contentType: 'application/x-www-form-urlencoded',

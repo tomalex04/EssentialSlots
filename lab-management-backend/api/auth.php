@@ -18,7 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $result->fetch_assoc();
 
     if ($user && password_verify($password, $user['password'])) {
-        echo json_encode(['message' => 'Login successful']);
+        // Generate a unique session token
+        $sessionToken = bin2hex(random_bytes(32));
+        
+        // Store the session token in the database
+        $updateStmt = $conn->prepare("UPDATE users SET session_token = ? WHERE username = ?");
+        $updateStmt->bind_param("ss", $sessionToken, $username);
+        $updateStmt->execute();
+        $updateStmt->close();
+        
+        echo json_encode([
+            'message' => 'Login successful',
+            'session_token' => $sessionToken
+        ]);
     } else {
         echo json_encode(['error' => 'Invalid username or password']);
     }
