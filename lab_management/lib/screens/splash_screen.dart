@@ -44,10 +44,13 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.science,
-              size: 100,
-              color: Colors.blue,
+            Container(
+              height: 200,
+              width: 200,
+              child: Image.asset(
+                'assets/images/SBICON.png',
+                fit: BoxFit.contain,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(

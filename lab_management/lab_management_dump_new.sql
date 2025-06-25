@@ -31,7 +31,7 @@ CREATE TABLE `bookings` (
   `description` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_day_time` (`day`,`time`)
-) ENGINE=InnoDB AUTO_INCREMENT=508 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=639 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -59,7 +59,7 @@ CREATE TABLE `deactivations` (
   `room_name` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_day_time` (`day`,`time`)
-) ENGINE=InnoDB AUTO_INCREMENT=186 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=188 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -87,7 +87,7 @@ CREATE TABLE `labs` (
   UNIQUE KEY `name` (`name`),
   KEY `created_by` (`created_by`),
   CONSTRAINT `labs_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -96,8 +96,32 @@ CREATE TABLE `labs` (
 
 LOCK TABLES `labs` WRITE;
 /*!40000 ALTER TABLE `labs` DISABLE KEYS */;
-INSERT INTO `labs` VALUES (4,'lab 1','admin','2025-02-02 09:06:25');
+INSERT INTO `labs` VALUES (4,'lab 1','admin','2025-02-02 09:06:25'),(14,'lab 2','admin','2025-06-23 14:00:51');
 /*!40000 ALTER TABLE `labs` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `otp_verifications`
+--
+
+DROP TABLE IF EXISTS `otp_verifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `otp_verifications` (
+  `email` varchar(255) NOT NULL,
+  `otp` varchar(6) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `otp_verifications`
+--
+
+LOCK TABLES `otp_verifications` WRITE;
+/*!40000 ALTER TABLE `otp_verifications` DISABLE KEYS */;
+/*!40000 ALTER TABLE `otp_verifications` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -117,7 +141,7 @@ CREATE TABLE `requests` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_day_time` (`day`,`time`,`room_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=268 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -126,6 +150,7 @@ CREATE TABLE `requests` (
 
 LOCK TABLES `requests` WRITE;
 /*!40000 ALTER TABLE `requests` DISABLE KEYS */;
+INSERT INTO `requests` VALUES (260,'25-6-2025',1,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(261,'25-6-2025',2,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(262,'26-6-2025',1,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(263,'26-6-2025',2,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(264,'25-6-2025',3,'admin','lab 1','rnayr','2025-06-25 11:27:03'),(265,'26-6-2025',3,'admin','lab 1','rnayr','2025-06-25 11:27:03'),(266,'26-6-2025',4,'abcdefgh','lab 1','gdsabas','2025-06-25 11:27:45'),(267,'25-6-2025',4,'abcdefgh','lab 1','gdsabas','2025-06-25 11:27:45');
 /*!40000 ALTER TABLE `requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -141,9 +166,13 @@ CREATE TABLE `users` (
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` varchar(10) NOT NULL DEFAULT 'user',
+  `session_token` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `unique_username` (`username`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -152,7 +181,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (8,'admin','$2y$10$ZuyzSgZtZxxVR63HJcg5EOX.pBv9EnLdTHgPeFBOlWhYUS3SK57V2','admin'),(15,'abcdefgh','$2y$10$qQASafURjIAjeyfCJyaWzOuqgmO4RObBU9fNsxg0oHxgla7SpduVq','user'),(33,'12345678','$2y$10$aZaEpuHI75zTR3V9QrQv.uiVcVSBdOrC7wrZuWGQmENzZqaeiSooO','user');
+INSERT INTO `users` VALUES (8,'admin','$2y$10$ZuyzSgZtZxxVR63HJcg5EOX.pBv9EnLdTHgPeFBOlWhYUS3SK57V2','admin',NULL,'tomalex162@gmail.com',NULL),(15,'abcdefgh','$2y$10$qQASafURjIAjeyfCJyaWzOuqgmO4RObBU9fNsxg0oHxgla7SpduVq','user',NULL,NULL,NULL),(34,'12345678','$2y$10$.0R0GaiTq8tvbOfQnBQwF.ICCrWO3xfJ/9JAWODAJVj6ty5hlOP62','user',NULL,NULL,NULL),(37,'nimmyalex345','$2y$10$J15zMZt0KopKNKN/oBpLbeQigCXmdBkOFw2c8MGlUlIUyHUTC9WHO','user','a1a90b3e0f6a1e0c211608faab1745a3f12a95c18b331cd4b5aa0bd7e63f456f','nimmyalex345@gmail.com','1231231231');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -165,4 +194,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-05-30 21:45:32
+-- Dump completed on 2025-06-25 19:23:20

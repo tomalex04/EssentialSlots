@@ -1,5 +1,5 @@
 <?php
-header('Content-Type: application/json');
+require_once '../config/cors.php';  // Add CORS support
 include('../config/database.php');
 
 $result = $conn->query("SELECT name FROM labs ORDER BY name");

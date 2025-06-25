@@ -17,7 +17,7 @@ class SettingsProvider with ChangeNotifier {
   Future<void> loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Load font size (default to system font size if not set)
+    // Load font size (default to 14.0 if not set)
     _fontSize = prefs.getDouble('fontSize') ?? 14.0;
     
     notifyListeners();

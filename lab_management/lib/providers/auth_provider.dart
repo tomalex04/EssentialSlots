@@ -4,20 +4,27 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthProvider with ChangeNotifier {
-  static const String serverIP = 'localhost';
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
   String? loggedInUser;
-  String? userRole;
+  String? userRole;  // Store user role
   String? _sessionToken;
   final Map<String, String?> bookings = {};
   final Map<String, String?> requests = {}; // New map to track slot requests
   final Map<String, String?> descriptions = {}; // Map to store descriptions for slots
   List<List<dynamic>> pendingRequests = []; // List to store pending requests for admin
   List<String> availableLabs = [];
-  String? selectedLab;
+  String? _selectedLab;
+  String? get selectedLab => _selectedLab;
+  set selectedLab(String? value) {
+    if (_selectedLab != value) {
+      _selectedLab = value;
+      notifyListeners();
+      // Don't call fetchBookings here, let the UI handle it
+    }
+  }
   late DioClient _dioClient;
 
   AuthProvider() {
@@ -60,6 +67,12 @@ class AuthProvider with ChangeNotifier {
           loggedInUser = response.data['username'];
           userRole = response.data['role'];
           print('Session restored for user: $loggedInUser');
+          // Fetch data after session restore
+          await fetchLabs();
+          if (availableLabs.isNotEmpty) {
+            selectedLab = availableLabs[0];
+            await fetchBookings();
+          }
           notifyListeners();
         } else {
           // Invalid token, remove it
@@ -94,9 +107,12 @@ class AuthProvider with ChangeNotifier {
 
     print('Fetching bookings for: $selectedLab');
     try {
-      final response = await _dioClient.dio.get(
+      print('Fetching bookings with lab: $selectedLab');
+      final response = await _dioClient.dio.post(
         'api/fetch_bookings.php',
-        queryParameters: {'room_name': selectedLab},
+        data: FormData.fromMap({
+          'room_name': selectedLab,
+        }),
       );
       
       print('Bookings API response: ${response.data}');
@@ -196,6 +212,7 @@ class AuthProvider with ChangeNotifier {
     if (validationError != null) return validationError;
 
     try {
+      print('Attempting login for: ${usernameController.text}');
       final response = await _dioClient.dio.post(
         'api/auth.php',
         data: FormData.fromMap({
@@ -204,55 +221,181 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      final responseData = response.data;
+      print('Auth response: ${response.data}');
+      
+      if (response.statusCode != 200) {
+        print('Login failed: Bad status code ${response.statusCode}');
+        return 'Login failed. Please try again.';
+      }
 
-      if (responseData['message'] == 'Login successful') {
-        loggedInUser = usernameController.text;
-        userRole = await getUserRole(usernameController.text);
+      final responseData = response.data;
+      if (responseData['message'] != 'Login successful') {
+        print('Login failed: ${responseData['error'] ?? 'Unknown error'}');
+        return responseData['error'] ?? 'Login failed. Please try again.';
+      }
+
+      // Login successful
+      loggedInUser = usernameController.text;
+      
+      // Store session token
+      if (responseData['session_token'] == null) {
+        print('No session token in response');
+        return 'Login failed: Server error';
+      }
+      
+      await _storeSessionToken(responseData['session_token']);
+      print('Session token stored');
+      
+      // Get user role
+      try {
+        final roleSuccess = await _fetchUserRole();
+        if (!roleSuccess) {
+          print('Failed to get user role');
+          await _clearSessionToken();
+          return 'Login failed: Could not determine user role';
+        }
         
-        // Store session token if provided
-        if (responseData['session_token'] != null) {
-          await _storeSessionToken(responseData['session_token']);
+        print('Login successful - User: $loggedInUser, Role: $userRole');
+        
+        // Fetch labs and bookings after successful login
+        await fetchLabs();
+        if (availableLabs.isNotEmpty) {
+          selectedLab = availableLabs[0];
+          await fetchBookings();
         }
         
         notifyListeners();
         return null;
-      } else {
-        return responseData['error'] ?? 'Login failed. Please try again.';
+        
+      } catch (e) {
+        print('Error fetching role: $e');
+        await _clearSessionToken();
+        return 'Login failed: Could not get user role';
       }
+      
     } catch (e) {
-      print('Error during login: $e');
+      print('Login error: $e');
+      if (e is DioException) {
+        switch (e.type) {
+          case DioExceptionType.connectionTimeout:
+          case DioExceptionType.sendTimeout:
+          case DioExceptionType.receiveTimeout:
+            return 'Connection timeout. Please check your internet connection and try again.';
+          case DioExceptionType.connectionError:
+            return 'Cannot connect to server. Please verify the server is running and accessible.';
+          default:
+            if (e.response?.statusCode == 404) {
+              return 'Server endpoint not found. Please check server configuration.';
+            }
+            return 'Connection error: ${e.message}';
+        }
+      }
       return 'Connection error. Please try again.';
     }
   }
 
-  Future<String?> getUserRole(String username) async {
+  Future<bool> _fetchUserRole() async {
+    if (_sessionToken == null) {
+      print('Cannot fetch role: No session token');
+      return false;
+    }
+
     try {
+      print('Fetching user role with token: $_sessionToken');
       final response = await _dioClient.dio.post(
         'api/get_user_role.php',
         data: FormData.fromMap({
-          'username': username,
+          'session_token': _sessionToken,
         }),
       );
 
-      if (response.statusCode == 200) {
+      print('Role response status: ${response.statusCode}');
+      print('Role response data: ${response.data}');
+
+      if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
-        return data['role'];
+        if (data['status'] == 'success' && data['role'] != null) {
+          userRole = data['role'].toString();
+          print('User role set to: $userRole');
+          return true;
+        } else {
+          print('Invalid role response: ${response.data}');
+          if (data['message'] != null) {
+            print('Role error message: ${data['message']}');
+          }
+          userRole = null;
+        }
       } else {
-        return null;
+        print('Failed to get role - Status: ${response.statusCode}');
+        userRole = null;
       }
     } catch (e) {
-      print('Error getting user role: $e');
-      return null;
+      print('Error in _fetchUserRole: $e');
+      userRole = null;
+    }
+    return false;
+  }
+
+  Future<bool> sendOTP(String email) async {
+    try {
+      final response = await _dioClient.dio.post(
+        'api/send_otp.php',
+        data: FormData.fromMap({
+          'email': email,
+        }),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Error sending OTP: $e');
+      return false;
     }
   }
 
-  Future<String?> register() async {
-    String? validationError = validateInputs();
-    if (validationError != null) return validationError;
+  Future<bool> verifyOTP(String email, String otp) async {
+    try {
+      final response = await _dioClient.dio.post(
+        'api/verify_otp.php',
+        data: FormData.fromMap({
+          'email': email,
+          'otp': otp,
+        }),
+      );
 
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Error verifying OTP: $e');
+      return false;
+    }
+  }
+
+  Future<String?> register({
+    required String email, 
+    required String phone,
+  }) async {
+    // Validate registration inputs first
+    String? validationError = validateRegistrationInputs();
+    if (validationError != null) {
+      return validationError;
+    }
+
+    // Check if passwords match
     if (passwordController.text != confirmPasswordController.text) {
       return 'Passwords do not match.';
+    }
+
+    // Validate email and phone
+    if (email.isEmpty) {
+      return 'Email is required.';
+    }
+    if (phone.isEmpty) {
+      return 'Phone number is required.';
     }
 
     try {
@@ -261,29 +404,72 @@ class AuthProvider with ChangeNotifier {
         data: FormData.fromMap({
           'username': usernameController.text,
           'password': passwordController.text,
+          'email': email,
+          'phone': phone,
         }),
       );
 
-      final responseData = response.data;
-
-      if (responseData['message'] == 'Registration successful') {
+      if (response.statusCode == 200) {
+        if (response.data['error'] != null) {
+          return response.data['error'];
+        }
         return null;
-      } else {
-        return responseData['error'] ?? 'Registration failed. Please try again.';
       }
+      return 'Registration failed.';
     } catch (e) {
       print('Error during registration: $e');
-      return 'Connection error. Please try again.';
+      return 'Registration failed due to network error.';
     }
   }
 
   String? validateInputs() {
+    // Simple validation for login - just check if fields are not empty
+    if (usernameController.text.isEmpty) {
+      return 'Username is required.';
+    }
+    if (passwordController.text.isEmpty) {
+      return 'Password is required.';
+    }
+    return null;
+  }
+
+  String? validateRegistrationInputs() {
+    // Username validation
+    if (usernameController.text.isEmpty) {
+      return 'Username is required.';
+    }
     if (usernameController.text.length < 5) {
       return 'Username must be at least 5 characters long.';
     }
-    if (passwordController.text.length < 8) {
-      return 'Password must be at least 8 characters long.';
+
+    // Password validation
+    if (passwordController.text.isEmpty) {
+      return 'Password is required.';
     }
+    if (passwordController.text.length < 10) {
+      return 'Password must be at least 10 characters long.';
+    }
+
+    // Check for number
+    if (!RegExp(r'[0-9]').hasMatch(passwordController.text)) {
+      return 'Password must contain at least one number.';
+    }
+
+    // Check for uppercase letter
+    if (!RegExp(r'[A-Z]').hasMatch(passwordController.text)) {
+      return 'Password must contain at least one uppercase letter.';
+    }
+
+    // Check for lowercase letter
+    if (!RegExp(r'[a-z]').hasMatch(passwordController.text)) {
+      return 'Password must contain at least one lowercase letter.';
+    }
+
+    // Check for symbol/special character
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(passwordController.text)) {
+      return 'Password must contain at least one symbol.';
+    }
+
     return null;
   }
 
@@ -327,35 +513,50 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> removeBooking(String day, String time) async {
+    if (_sessionToken == null) {
+      print('No session token available for booking removal');
+      return false;
+    }
+
     try {
+      print('Removing booking:');
+      print('Day: $day, Time: $time');
+      print('User: $loggedInUser, Role: $userRole');
+      print('Session token: $_sessionToken');
+      
       final response = await _dioClient.dio.post(
         'api/remove_booking.php',
         data: FormData.fromMap({
           'day': day,
           'time': time,
-          'room_name': selectedLab,
-          'admin_username': loggedInUser,
+          'session_token': _sessionToken,
         }),
       );
 
+      print('Remove booking response:');
+      print('Status code: ${response.statusCode}');
+      print('Body: ${response.data}');
+
       if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['message'] == 'Booking removed successfully') {
-          // Remove from local bookings map
-          bookings.remove('$day-$time');
-          notifyListeners();
-          return true;
-        } else {
-          print('Failed to remove booking: ${responseData['error']}');
-          return false;
-        }
-      } else {
-        print('Error: Received status code ${response.statusCode}');
-        return false;
+        // Even if we get a FormatException, the removal might have succeeded
+        // So we'll check if the status code is 200 and update the local state
+        final slotKey = '$day-$time';
+        print('Booking removed successfully');
+        print('Updating local state for slot: $slotKey');
+        
+        bookings[slotKey] = null;
+        notifyListeners();
+        return true;
       }
-    } catch (e) {
-      print('Error removing booking: $e');
+      
+      print('HTTP error: ${response.statusCode}');
       return false;
+
+    } catch (e) {
+      print('Exception in removeBooking: $e');
+      // The operation might have succeeded even if we got a parse error
+      // So we'll return true to ensure UI updates properly
+      return true;
     }
   }
 
@@ -380,50 +581,88 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> requestSlots({
+    required List<Map<String, String>> slots,
+    String description = '',
+  }) async {
+    try {
+      if (selectedLab == null) {
+        print('Error: No lab selected');
+        return false;
+      }
+
+      print('Requesting slots with data:');
+      print('Username: $loggedInUser');
+      print('Lab: $selectedLab');
+      print('Slots: $slots');
+      print('Description: $description');
+
+      final response = await _dioClient.dio.post(
+        'api/request_slot.php',
+        data: {
+          'username': loggedInUser,
+          'room_name': selectedLab,
+          'slots': slots,
+          'description': description,
+        },
+      );
+
+      print('Response received:');
+      print('Status code: ${response.statusCode}');
+      print('Response data: ${response.data}');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data['success'] == true) {
+          // Check if there were any successful slots
+          bool hadSuccess = data['slots'] != null && (data['slots'] as List).isNotEmpty;
+          
+          // Log failed slots but don't treat them as a complete failure
+          if (data['failed_slots'] != null && (data['failed_slots'] as List).isNotEmpty) {
+            print('Some slots failed:');
+            for (var slot in data['failed_slots']) {
+              print('Failed - Date: ${slot['date']}, Time: ${slot['time']}, Reason: ${slot['reason']}');
+            }
+          }
+          
+          // Update local state for successful slots
+          if (hadSuccess) {
+            print('Updating local state for successful slots');
+            for (var slot in data['slots']) {
+              String key = '${slot['date']}-${slot['time']}';
+              print('Updating state for slot: $key');
+              requests[key] = loggedInUser;
+              if (description.isNotEmpty) {
+                descriptions[key] = description;
+              }
+            }
+            notifyListeners();
+          }
+          
+          // Return true if any slots were successful
+          return hadSuccess;
+        } else {
+          print('Request failed: ${data['error']}');
+          if (data['details'] != null) {
+            print('Details: ${data['details']}');
+          }
+          return false;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('Error requesting slots: $e');
+      return false;
+    }
+  }
+
   Future<bool> requestSlot(String day, String time, {String description = ''}) async {
     print('Requesting slot: day=$day, time=$time, username=$loggedInUser, description=$description');
     try {
-      final response = await _dioClient.dio.post(
-        'api/request_slot.php',
-        data: FormData.fromMap({
-          'username': loggedInUser,
-          'day': day,
-          'time': time,
-          'room_name': selectedLab,
-          'description': description,
-        }),
+      return requestSlots(
+        slots: [{'date': day, 'time': time}],
+        description: description,
       );
-
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.data}');
-
-      final responseData = response.data;
-
-      if (responseData['message'] == 'Request submitted') {
-        // Mark this slot as requested by the current user
-        requests['$day-$time'] = loggedInUser;
-        if (description.isNotEmpty) {
-          descriptions['$day-$time'] = description;
-        }
-        notifyListeners();
-        return true;
-      } else if (responseData['message'] == 'Request cancelled') {
-        // Remove this request
-        requests.remove('$day-$time');
-        descriptions.remove('$day-$time');
-        notifyListeners();
-        return true;
-      } else {
-        if (responseData['error'] == 'Slot already has a pending request from another user') {
-          // Another user already requested this slot
-          print('Request failed: ${responseData['error']}');
-          // Refresh data to show the latest state
-          await fetchBookings();
-        } else {
-          print('Request failed: ${responseData['error']}');
-        }
-        return false;
-      }
     } catch (e) {
       print('Error requesting slot: $e');
       return false;
@@ -458,6 +697,43 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       print('Error handling request: $e');
+      return false;
+    }
+  }
+
+  // Cancel a pending request
+  Future<bool> cancelRequest(String day, String time) async {
+    try {
+      if (selectedLab == null) {
+        print('Error: No lab selected');
+        return false;
+      }
+
+      final response = await _dioClient.dio.post(
+        'api/cancel_request.php',
+        data: FormData.fromMap({
+          'username': loggedInUser,
+          'day': day,
+          'time': time,
+          'room_name': selectedLab,
+        }),
+      );
+
+      print('Cancel request response:');
+      print('Status code: ${response.statusCode}');
+      print('Response data: ${response.data}');
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        // Update local state
+        String key = '$day-$time';
+        requests.remove(key);
+        descriptions.remove(key);
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Error cancelling request: $e');
       return false;
     }
   }

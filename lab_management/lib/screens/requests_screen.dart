@@ -25,10 +25,10 @@ class _RequestsScreenState extends State<RequestsScreen> {
     setState(() {
       isLoading = true;
     });
-    
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.fetchRequests();
-    
+
     setState(() {
       isLoading = false;
     });
@@ -132,7 +132,8 @@ class _RequestsScreenState extends State<RequestsScreen> {
                     final day = request[2];
                     final time = request[3];
                     final description = request.length > 4 ? request[4] : '';
-                    final competingRequests = request.length > 5 ? request[5] : 0;
+                    final competingRequests =
+                        request.length > 5 ? request[5] : 0;
 
                     return Card(
                       margin: const EdgeInsets.symmetric(
@@ -172,10 +173,9 @@ class _RequestsScreenState extends State<RequestsScreen> {
                               Text(
                                 'Note: $competingRequests other ${competingRequests == 1 ? 'user has' : 'users have'} requested this slot',
                                 style: const TextStyle(
-                                  fontSize: 14, 
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold
-                                ),
+                                    fontSize: 14,
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                             const SizedBox(height: 16),
@@ -184,12 +184,14 @@ class _RequestsScreenState extends State<RequestsScreen> {
                               children: [
                                 TextButton(
                                   onPressed: () async {
-                                    final success = await authProvider.handleRequest(
+                                    final success =
+                                        await authProvider.handleRequest(
                                       requestId,
                                       'reject',
                                     );
                                     if (success) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                           content: Text('Request rejected'),
                                         ),
@@ -205,14 +207,17 @@ class _RequestsScreenState extends State<RequestsScreen> {
                                 const SizedBox(width: 8),
                                 ElevatedButton(
                                   onPressed: () async {
-                                    final success = await authProvider.handleRequest(
+                                    final success =
+                                        await authProvider.handleRequest(
                                       requestId,
                                       'approve',
                                     );
                                     if (success) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                           content: Text('Request approved'),
+                                          duration: const Duration(milliseconds: 500),
                                         ),
                                       );
                                       _refreshRequests();

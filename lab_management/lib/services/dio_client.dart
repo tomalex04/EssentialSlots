@@ -1,62 +1,57 @@
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:dio/io.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DioClient {
-  static final DioClient _instance = DioClient._internal();
   late Dio dio;
-  late CookieJar cookieJar;
-  bool _isInitialized = false;
-
-  factory DioClient() {
-    return _instance;
-  }
-
-  DioClient._internal();
+  static const String serverIP = '192.168.1.41';
 
   Future<void> init() async {
-    if (_isInitialized) return;
-    
     dio = Dio(BaseOptions(
-      baseUrl: 'http://localhost/lab-management-backend/',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      baseUrl: 'http://$serverIP/lab-management-backend/',
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
       contentType: 'application/x-www-form-urlencoded',
       validateStatus: (status) {
-        return status != null && status < 500;
+        return status! < 500;
       },
     ));
 
-    // Set up persistent cookie storage
-    Directory appDocDir = await getApplicationDocumentsDirectory();
-    String appDocPath = appDocDir.path;
-    cookieJar = PersistCookieJar(
-      ignoreExpires: true,
-      storage: FileStorage("$appDocPath/.cookies/"),
-    );
-    
-    dio.interceptors.add(CookieManager(cookieJar));
-    
-    // Add logging interceptor in debug mode
-    if (kDebugMode) {
-      dio.interceptors.add(LogInterceptor(
-        request: true,
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: true,
-        responseBody: true,
-        error: true,
+    // Configure Dio for web CORS
+    if (kIsWeb) {
+      dio.options.extra = {'withCredentials': true};
+      dio.options.headers['Accept'] = '*/*';
+      
+      // Intercept requests to handle CORS
+      dio.interceptors.add(InterceptorsWrapper(
+        onRequest: (options, handler) {
+          print('Making request to: ${options.uri}');
+          print('Request headers: ${options.headers}');
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          print('Received response: ${response.statusCode}');
+          print('Response headers: ${response.headers}');
+          return handler.next(response);
+        },
+        onError: (error, handler) {
+          print('Request error: ${error.message}');
+          print('Response: ${error.response}');
+          return handler.next(error);
+        },
       ));
     }
-    
-    _isInitialized = true;
+
+    // Add interceptor for logging
+    dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      requestHeader: true,
+      responseHeader: true,
+    ));
   }
 
-  // Method to clear all cookies (useful for logout)
-  Future<void> clearCookies() async {
-    await cookieJar.deleteAll();
+  void clearCookies() {
+    // Clear cookies if needed
   }
 }
