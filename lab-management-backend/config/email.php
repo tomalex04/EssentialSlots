@@ -5,7 +5,7 @@ return [
     'from_name' => getenv('MAIL_FROM_NAME') ?: 'Essential Slots',
     
     // SMTP configuration (if needed)
-    'smtp_host' => getenv('SMTP_HOST') ?: 'localhost',
+    'smtp_host' => getenv('SMTP_HOST') ?: 'smtp.gmail.com',
     'smtp_port' => getenv('SMTP_PORT') ?: 25,
     'smtp_username' => getenv('SMTP_USERNAME') ?: '',
     'smtp_password' => getenv('SMTP_PASSWORD') ?: '',

@@ -141,7 +141,7 @@ CREATE TABLE `requests` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_day_time` (`day`,`time`,`room_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=268 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=272 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -150,7 +150,6 @@ CREATE TABLE `requests` (
 
 LOCK TABLES `requests` WRITE;
 /*!40000 ALTER TABLE `requests` DISABLE KEYS */;
-INSERT INTO `requests` VALUES (260,'25-6-2025',1,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(261,'25-6-2025',2,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(262,'26-6-2025',1,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(263,'26-6-2025',2,'admin','lab 1','dfgzfdsghhz','2025-06-25 11:26:48'),(264,'25-6-2025',3,'admin','lab 1','rnayr','2025-06-25 11:27:03'),(265,'26-6-2025',3,'admin','lab 1','rnayr','2025-06-25 11:27:03'),(266,'26-6-2025',4,'abcdefgh','lab 1','gdsabas','2025-06-25 11:27:45'),(267,'25-6-2025',4,'abcdefgh','lab 1','gdsabas','2025-06-25 11:27:45');
 /*!40000 ALTER TABLE `requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -181,7 +180,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (8,'admin','$2y$10$ZuyzSgZtZxxVR63HJcg5EOX.pBv9EnLdTHgPeFBOlWhYUS3SK57V2','admin',NULL,'tomalex162@gmail.com',NULL),(15,'abcdefgh','$2y$10$qQASafURjIAjeyfCJyaWzOuqgmO4RObBU9fNsxg0oHxgla7SpduVq','user',NULL,NULL,NULL),(34,'12345678','$2y$10$.0R0GaiTq8tvbOfQnBQwF.ICCrWO3xfJ/9JAWODAJVj6ty5hlOP62','user',NULL,NULL,NULL),(37,'nimmyalex345','$2y$10$J15zMZt0KopKNKN/oBpLbeQigCXmdBkOFw2c8MGlUlIUyHUTC9WHO','user','a1a90b3e0f6a1e0c211608faab1745a3f12a95c18b331cd4b5aa0bd7e63f456f','nimmyalex345@gmail.com','1231231231');
+INSERT INTO `users` VALUES (8,'admin','$2y$10$ZuyzSgZtZxxVR63HJcg5EOX.pBv9EnLdTHgPeFBOlWhYUS3SK57V2','admin','fcb60c59b0acbbfa4a905dea0e9036b6460a7d445c092c127d9a2f5df1ec9bbc','tomalex162@gmail.com',NULL),(15,'abcdefgh','$2y$10$qQASafURjIAjeyfCJyaWzOuqgmO4RObBU9fNsxg0oHxgla7SpduVq','user',NULL,NULL,NULL),(34,'12345678','$2y$10$.0R0GaiTq8tvbOfQnBQwF.ICCrWO3xfJ/9JAWODAJVj6ty5hlOP62','user',NULL,NULL,NULL),(37,'nimmyalex345','$2y$10$J15zMZt0KopKNKN/oBpLbeQigCXmdBkOFw2c8MGlUlIUyHUTC9WHO','user','a1a90b3e0f6a1e0c211608faab1745a3f12a95c18b331cd4b5aa0bd7e63f456f','nimmyalex345@gmail.com','1231231231');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -194,4 +193,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-06-25 19:23:20
+-- Dump completed on 2025-06-25 23:16:21

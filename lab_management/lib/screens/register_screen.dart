@@ -66,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (success) {
       startResendCountdown();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP sent successfully')),
+        const SnackBar(content: Text('OTP sent to email successfully')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

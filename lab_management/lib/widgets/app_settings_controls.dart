@@ -8,7 +8,7 @@ class AppSettingsControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -45,11 +45,12 @@ class AppSettingsControls extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text('Current: ${settingsProvider.fontSize.toStringAsFixed(1)}'),
+          child:
+              Text('Current: ${settingsProvider.fontSize.toStringAsFixed(1)}'),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Reset Button
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -57,7 +58,10 @@ class AppSettingsControls extends StatelessWidget {
             onPressed: () {
               settingsProvider.resetToDefaults();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Settings reset to defaults')),
+                const SnackBar(
+                  content: Text('Settings reset to defaults'),
+                  duration: const Duration(milliseconds: 500),
+                ),
               );
             },
             child: const Text('Reset to Defaults'),

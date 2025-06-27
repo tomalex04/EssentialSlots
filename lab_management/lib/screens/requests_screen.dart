@@ -194,6 +194,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
                                           .showSnackBar(
                                         const SnackBar(
                                           content: Text('Request rejected'),
+                                          duration: const Duration(milliseconds: 500),
                                         ),
                                       );
                                       _refreshRequests();
