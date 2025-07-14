@@ -1,16 +1,15 @@
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DioClient {
   late Dio dio;
-  static const String serverIP = '192.168.1.41';
-
+  static const String serverIP = '10.201.1.100:81'; // Change this to your server IP or domain
+//10.201.1.100:81
   Future<void> init() async {
     dio = Dio(BaseOptions(
       baseUrl: 'http://$serverIP/lab-management-backend/',
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
       contentType: 'application/x-www-form-urlencoded',
       validateStatus: (status) {
         return status! < 500;
@@ -25,18 +24,12 @@ class DioClient {
       // Intercept requests to handle CORS
       dio.interceptors.add(InterceptorsWrapper(
         onRequest: (options, handler) {
-          print('Making request to: ${options.uri}');
-          print('Request headers: ${options.headers}');
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          print('Received response: ${response.statusCode}');
-          print('Response headers: ${response.headers}');
           return handler.next(response);
         },
         onError: (error, handler) {
-          print('Request error: ${error.message}');
-          print('Response: ${error.response}');
           return handler.next(error);
         },
       ));

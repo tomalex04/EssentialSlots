@@ -60,7 +60,7 @@ class AppSettingsControls extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Settings reset to defaults'),
-                  duration: const Duration(milliseconds: 500),
+                  duration: Duration(milliseconds: 500),
                 ),
               );
             },

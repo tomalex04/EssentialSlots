@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
+            SizedBox(
               height: 200,
               width: 200,
               child: Image.asset(
@@ -54,16 +54,16 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Essential Slots',
+              'SB College Hall Booking',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue,
+                color: Color.fromARGB(255, 99, 99, 99),
               ),
             ),
             const SizedBox(height: 20),
             const Text(
-              'Lab Management System',
+              ' ',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey,

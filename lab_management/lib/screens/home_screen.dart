@@ -124,9 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       } else if (authProvider.requests[key] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('You can only cancel your own requests'),
-            duration: const Duration(seconds: 1),
+            duration: Duration(seconds: 1),
           ),
         );
       }
@@ -285,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _onRefresh() async {
     // Simulate a delay for fetching new data
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
     final authProvider = Provider.of<AuthProvider>(context,
         listen: false); // Perform any refresh logic here
     authProvider.fetchBookings();
@@ -367,10 +367,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void startRemovingBookings() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    print('Starting removal mode');
-    print('Current user: ${authProvider.loggedInUser}');
-    print('User role: ${authProvider.userRole}');
-
     setState(() {
       isRemovingBookings = true;
       isBooking = false;
@@ -386,36 +382,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final selectedSlotsCopy =
         Set<String>.from(selectedSlots); // Make a copy of selected slots
 
-    print('Starting removal process');
-    print('Selected slots: ${selectedSlotsCopy.toList()}');
-    print('Current user: ${authProvider.loggedInUser}');
-    print('User role: ${authProvider.userRole}');
-
     // Process each selected slot
     for (var slot in selectedSlots) {
       final parts = slot.split('-');
       final day = '${parts[0]}-${parts[1]}-${parts[2]}';
       final time = parts[3];
 
-      print('Processing slot: $slot');
-      print('Current slot owner: ${authProvider.bookings[slot]}');
-
       // Verify permission
       bool hasPermission = authProvider.userRole == 'admin' ||
           authProvider.bookings[slot] == authProvider.loggedInUser;
 
-      print('Has permission to remove: $hasPermission');
-
       if (!hasPermission) {
-        print('Permission denied for slot $slot');
         failedSlots.add('$day-$time');
         continue;
       }
 
       // Attempt removal
       bool success = await authProvider.removeBooking(day, time);
-      print('Removal result for $slot: $success');
-
       if (success) {
         successCount++;
       } else {
@@ -423,9 +406,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    print('Removal process complete');
-    print('Successes: $successCount');
-    print('Failures: ${failedSlots.length}');
+
 
     // Show results message
     if (mounted) {
@@ -476,6 +457,65 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       selectedSlots.clear();
       isRemovingBookings = false;
+    });
+  }
+
+  void toggleRow(String date) {
+    if (!isBooking && !isCancelling && !isRemovingBookings) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final allSlotsInRow = times.map((time) => '$date-$time').toList();
+    bool shouldSelect = false;
+
+    // Check if we should select or deselect based on the first available slot
+    if (isBooking) {
+      // For booking mode, check if any slot in the row can be selected
+      shouldSelect = allSlotsInRow.any((key) => 
+        !selectedSlots.contains(key) && 
+        (authProvider.bookings[key] == null && 
+         (authProvider.requests[key] == null || 
+          authProvider.requests[key] == authProvider.loggedInUser))
+      );
+    } else if (isCancelling) {
+      // For cancelling mode, check if any slot can be cancelled
+      shouldSelect = allSlotsInRow.any((key) =>
+        !selectedSlots.contains(key) &&
+        authProvider.requests[key] == authProvider.loggedInUser
+      );
+    } else if (isRemovingBookings) {
+      // For removing mode, check if any slot can be removed
+      shouldSelect = allSlotsInRow.any((key) =>
+        !selectedSlots.contains(key) &&
+        (authProvider.userRole == 'admin' || 
+         authProvider.bookings[key] == authProvider.loggedInUser)
+      );
+    }
+
+    setState(() {
+      for (String key in allSlotsInRow) {
+        if (shouldSelect) {
+          // Add slots based on the current mode
+          if (isBooking) {
+            if (authProvider.bookings[key] == null &&
+                (authProvider.requests[key] == null ||
+                 authProvider.requests[key] == authProvider.loggedInUser)) {
+              selectedSlots.add(key);
+            }
+          } else if (isCancelling) {
+            if (authProvider.requests[key] == authProvider.loggedInUser) {
+              selectedSlots.add(key);
+            }
+          } else if (isRemovingBookings) {
+            if (authProvider.userRole == 'admin' ||
+                authProvider.bookings[key] == authProvider.loggedInUser) {
+              selectedSlots.add(key);
+            }
+          }
+        } else {
+          // Remove all slots in the row
+          selectedSlots.remove(key);
+        }
+      }
     });
   }
 
@@ -551,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 24,
                             ),
                           ),
-                          Spacer(),
+                          const Spacer(),
                           Text(
                             '${authProvider.loggedInUser}',
                             style: const TextStyle(
@@ -613,14 +653,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           });
                           
                           // Small delay to ensure state is updated
-                          await Future.delayed(Duration(milliseconds: 500));
+                          await Future.delayed(const Duration(milliseconds: 500));
                           
                           if (mounted) {
                             // Show loading indicator
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Loading bookings for $newValue...'),
-                                duration: Duration(seconds: 1),
+                                duration: const Duration(seconds: 1),
                               ),
                             );
                             
@@ -659,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   ElevatedButton(
                                     onPressed: submitBooking,
-                                    child: Text('Submit Changes'),
+                                    child: const Text('Submit Changes'),
                                   ),
                                   const SizedBox(width: 10),
                                   ElevatedButton(
@@ -716,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 20),
                             Expanded(
                               child: InteractiveViewer(
-                                boundaryMargin: EdgeInsets.all(20.0),
+                                boundaryMargin: const EdgeInsets.all(20.0),
                                 minScale: 0.5,
                                 maxScale: 2.0,
                                 scaleEnabled: false, // Disable zooming with mouse wheel
@@ -730,7 +770,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       child: Table(
                                         border: TableBorder.all(),
-                                        defaultColumnWidth: IntrinsicColumnWidth(),
+                                        defaultColumnWidth: const IntrinsicColumnWidth(),
                                         children: [
                                           TableRow(
                                             children: [
@@ -763,15 +803,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                             return TableRow(
                                               children: [
                                                 TableCell(
-                                                  child: Center(
-                                                    child: Column(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Text('$day-$month-$year'),
-                                                        Text(getDayName(weekday)),
-                                                      ],
+                                                  child: GestureDetector(
+                                                    onTap: () => toggleRow('$day-$month-$year'),
+                                                    child: Container(
+                                                      color: isBooking || isCancelling || isRemovingBookings
+                                                          ? Colors.grey.withOpacity(0.1)
+                                                          : null,
+                                                      child: Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            Text('$day-$month-$year'),
+                                                            Text(getDayName(weekday)),
+                                                          ],
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -826,7 +874,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           }
                                                         },
                                                         child: Container(
-                                                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
                                                           color: selectedSlots
                                                                   .contains(key)
                                                               ? (isRemovingBookings

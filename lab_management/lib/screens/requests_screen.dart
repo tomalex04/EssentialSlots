@@ -73,8 +73,8 @@ class _RequestsScreenState extends State<RequestsScreen> {
         title: const Text('Pending Requests'),
         actions: [
           TextButton(
-            child: const Text('Refresh'),
             onPressed: _refreshRequests,
+            child: const Text('Refresh'),
           ),
           Builder(
             builder: (context) => TextButton(
@@ -194,16 +194,16 @@ class _RequestsScreenState extends State<RequestsScreen> {
                                           .showSnackBar(
                                         const SnackBar(
                                           content: Text('Request rejected'),
-                                          duration: const Duration(milliseconds: 500),
+                                          duration: Duration(milliseconds: 500),
                                         ),
                                       );
                                       _refreshRequests();
                                     }
                                   },
-                                  child: const Text('Reject'),
                                   style: TextButton.styleFrom(
                                     foregroundColor: Colors.red,
                                   ),
+                                  child: const Text('Reject'),
                                 ),
                                 const SizedBox(width: 8),
                                 ElevatedButton(
@@ -218,17 +218,17 @@ class _RequestsScreenState extends State<RequestsScreen> {
                                           .showSnackBar(
                                         const SnackBar(
                                           content: Text('Request approved'),
-                                          duration: const Duration(milliseconds: 500),
+                                          duration: Duration(milliseconds: 500),
                                         ),
                                       );
                                       _refreshRequests();
                                     }
                                   },
-                                  child: const Text('Approve'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
                                     foregroundColor: Colors.white,
                                   ),
+                                  child: const Text('Approve'),
                                 ),
                               ],
                             ),

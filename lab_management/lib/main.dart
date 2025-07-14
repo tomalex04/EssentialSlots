@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
     return ScalableApp(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Essential Slots',
+        title: 'SB College Hall Booking',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           scaffoldBackgroundColor: Colors.white,
@@ -43,18 +43,18 @@ class MyApp extends StatelessWidget {
         ),
         home: const SplashScreen(),
         routes: {
-          '/admin-home': (context) => AuthGuard(
+          '/admin-home': (context) => const AuthGuard(
             requiresAdmin: true,
-            child: const AdminHomeScreen(),
+            child: AdminHomeScreen(),
           ),
-          '/home': (context) => AuthGuard(
-            child: const HomeScreen(),
+          '/home': (context) => const AuthGuard(
+            child: HomeScreen(),
           ),
           '/register': (context) => const RegisterScreen(),
           '/login': (context) => const LoginScreen(),
-          '/requests': (context) => AuthGuard(
+          '/requests': (context) => const AuthGuard(
             requiresAdmin: true,
-            child: const RequestsScreen(),
+            child: RequestsScreen(),
           ),
         },
       ),

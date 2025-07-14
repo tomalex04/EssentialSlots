@@ -204,8 +204,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Confirm'),
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('Confirm'),
                 ),
               ],
             );
@@ -277,7 +277,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Future<void> _onRefresh() async {
     // Simulate a delay for fetching new data
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
     final authProvider = Provider.of<AuthProvider>(context,
         listen: false); // Perform any refresh logic here
     authProvider.fetchBookings();
@@ -427,12 +427,58 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
+  void toggleRow(String date) {
+    if (!isDeactivating && !isRemoving && !isRequesting) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final allSlotsInRow = times.map((time) => '$date-$time').toList();
+    bool shouldSelect = false;
+
+    // Check if we should select or deselect based on the first available slot
+    if (isRequesting) {
+      // For requesting mode, check if any slot can be requested
+      shouldSelect = allSlotsInRow.any((key) =>
+          !selectedSlots.contains(key) &&
+          (authProvider.bookings[key] == null && authProvider.requests[key] == null));
+    } else if (isDeactivating) {
+      // For deactivating mode, check if any slot is not yet selected
+      shouldSelect = allSlotsInRow.any((key) => !selectedSlots.contains(key));
+    } else if (isRemoving) {
+      // For removing mode, check if any booked slot is not yet selected
+      shouldSelect = allSlotsInRow.any((key) =>
+          !selectedSlots.contains(key) &&
+          authProvider.bookings[key] != null &&
+          authProvider.bookings[key] != 'Deactivated by Admin');
+    }
+
+    setState(() {
+      for (String key in allSlotsInRow) {
+        if (shouldSelect) {
+          // Add slots based on the current mode
+          if (isRequesting) {
+            if (authProvider.bookings[key] == null &&
+                authProvider.requests[key] == null) {
+              selectedSlots.add(key);
+            }
+          } else if (isDeactivating) {
+            selectedSlots.add(key);
+          } else if (isRemoving) {
+            if (authProvider.bookings[key] != null &&
+                authProvider.bookings[key] != 'Deactivated by Admin') {
+              selectedSlots.add(key);
+            }
+          }
+        } else {
+          // Remove all slots in the row
+          selectedSlots.remove(key);
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    print('AdminHomeScreen build - Selected Lab: ${authProvider.selectedLab}');
-    print('AdminHomeScreen build - Bookings: ${authProvider.bookings}');
-
     return Scaffold(
       body: Column(
         children: [
@@ -489,7 +535,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   padding: EdgeInsets.zero,
                   children: [
                     DrawerHeader(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.blue,
                       ),
                       child: Column(
@@ -502,7 +548,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               fontSize: 24,
                             ),
                           ),
-                          Spacer(),
+                          const Spacer(),
                           Text(
                             '${authProvider.loggedInUser}',
                             style: const TextStyle(
@@ -553,16 +599,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       },
                     ),
                     ListTile(
-                      title: const Text('Add New Lab'),
+                      title: const Text('Add New Hall'),
                       onTap: () {
                         showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: const Text('Add New Lab'),
+                            title: const Text('Add New Hall'),
                             content: TextField(
                               controller: _labNameController,
                               decoration: const InputDecoration(
-                                hintText: 'Enter lab name',
+                                hintText: 'Enter Hall name',
                               ),
                             ),
                             actions: [
@@ -584,7 +630,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                           .showSnackBar(
                                         const SnackBar(
                                             content:
-                                                Text('Lab added successfully')),
+                                                Text('Hall added successfully')),
                                       );
                                     }
                                   }
@@ -714,16 +760,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                   : isRemoving
                                       ? submitRemoval
                                       : submitRequest,
-                              child: Text(isDeactivating
-                                  ? 'Submit Selected'
-                                  : isRemoving
-                                      ? 'Remove Selected'
-                                      : 'Submit Changes'),
                               style: ElevatedButton.styleFrom(
                                 foregroundColor:
                                     isRemoving ? Colors.white : null,
                                 backgroundColor: isRemoving ? Colors.red : null,
                               ),
+                              child: Text(isDeactivating
+                                  ? 'Submit Selected'
+                                  : isRemoving
+                                      ? 'Remove Selected'
+                                      : 'Submit Changes'),
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
@@ -738,7 +784,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   const SizedBox(height: 20),
                   Expanded(
                     child: InteractiveViewer(
-                      boundaryMargin: EdgeInsets.all(20.0),
+                      boundaryMargin: const EdgeInsets.all(20.0),
                       minScale: 0.5,
                       maxScale: 2.0,
                       scaleEnabled: false, // Disable zooming with mouse wheel
@@ -752,13 +798,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             ),
                             child: Table(
                               border: TableBorder.all(),
-                              defaultColumnWidth: IntrinsicColumnWidth(),
+                              defaultColumnWidth: const IntrinsicColumnWidth(),
                               children: [
                                 TableRow(
                                   children: [
-                                    TableCell(
+                                    const TableCell(
                                         child: Padding(
-                                            padding: const EdgeInsets.all(8.0),
+                                            padding: EdgeInsets.all(8.0),
                                             child:
                                                 Center(child: Text('Date')))),
                                     ...List.generate(
@@ -790,16 +836,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                   return TableRow(
                                     children: [
                                       TableCell(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Center(
-                                              child: Text(
-                                                  '$day-$month-$year (${getDayName(weekday)})')),
+                                        child: GestureDetector(
+                                          onTap: () => toggleRow('$day-$month-$year'),
+                                          child: Container(
+                                            color: isDeactivating || isRemoving || isRequesting
+                                                ? Colors.grey.withOpacity(0.1)
+                                                : null,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: Center(
+                                                child: Text(
+                                                  '$day-$month-$year (${getDayName(weekday)})',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ),
                                       ...times.map((time) {
                                         String key = '$day-$month-$year-$time';
-                                        //print(key);
                                         return TableCell(
                                           child: GestureDetector(
                                             onTap: () {

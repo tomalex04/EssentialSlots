@@ -28,7 +28,6 @@ class AuthProvider with ChangeNotifier {
   late DioClient _dioClient;
 
   AuthProvider() {
-    print('AuthProvider initialized');
     _initDio();
   }
 
@@ -41,10 +40,8 @@ class AuthProvider with ChangeNotifier {
     
     // After initializing Dio, fetch the labs
     await fetchLabs();
-    print('Labs fetched: $availableLabs');
     if (availableLabs.isNotEmpty) {
       selectedLab = availableLabs[0];
-      print('Selected lab: $selectedLab');
       fetchBookings();
     }
   }
@@ -66,7 +63,7 @@ class AuthProvider with ChangeNotifier {
           _sessionToken = storedToken;
           loggedInUser = response.data['username'];
           userRole = response.data['role'];
-          print('Session restored for user: $loggedInUser');
+
           // Fetch data after session restore
           await fetchLabs();
           if (availableLabs.isNotEmpty) {
@@ -79,7 +76,6 @@ class AuthProvider with ChangeNotifier {
           await prefs.remove('session_token');
         }
       } catch (e) {
-        print('Error verifying session token: $e');
         await prefs.remove('session_token');
       }
     }
@@ -101,21 +97,15 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> fetchBookings() async {
     if (selectedLab == null) {
-      print('No lab selected');
       return;
     }
-
-    print('Fetching bookings for: $selectedLab');
     try {
-      print('Fetching bookings with lab: $selectedLab');
       final response = await _dioClient.dio.post(
         'api/fetch_bookings.php',
         data: FormData.fromMap({
           'room_name': selectedLab,
         }),
       );
-      
-      print('Bookings API response: ${response.data}');
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -125,7 +115,7 @@ class AuthProvider with ChangeNotifier {
 
         data['bookings'].forEach((booking) {
           String key = '${booking['day']}-${booking['time']}';
-          print('Processing booking: $key = ${booking['username']}');
+
           bookings[key] = booking['username'];
           if (booking['description'] != null) {
             descriptions[key] = booking['description'];
@@ -134,19 +124,17 @@ class AuthProvider with ChangeNotifier {
 
         data['deactivations'].forEach((deactivation) {
           String key = '${deactivation['day']}-${deactivation['time']}';
-          print('Processing deactivation: $key');
+
           bookings[key] = 'Deactivated by Admin';
         });
 
         // Also fetch requests for the same lab
         await fetchRequests();
 
-        print('Final bookings map: $bookings');
-        print('Final requests map: $requests');
+
         notifyListeners();
       }
     } catch (e) {
-      print('Error fetching bookings: $e');
     }
   }
 
@@ -187,15 +175,12 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Error fetching requests: $e');
     }
   }
 
   Future<void> fetchLabs() async {
-    print('Fetching labs...');
     try {
       final response = await _dioClient.dio.get('api/fetch_labs.php');
-      print('Labs API response: ${response.data}');
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -203,7 +188,6 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Error fetching labs: $e');
     }
   }
 
@@ -212,7 +196,7 @@ class AuthProvider with ChangeNotifier {
     if (validationError != null) return validationError;
 
     try {
-      print('Attempting login for: ${usernameController.text}');
+
       final response = await _dioClient.dio.post(
         'api/auth.php',
         data: FormData.fromMap({
@@ -221,16 +205,12 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('Auth response: ${response.data}');
-      
       if (response.statusCode != 200) {
-        print('Login failed: Bad status code ${response.statusCode}');
         return 'Login failed. Please try again.';
       }
 
       final responseData = response.data;
       if (responseData['message'] != 'Login successful') {
-        print('Login failed: ${responseData['error'] ?? 'Unknown error'}');
         return responseData['error'] ?? 'Login failed. Please try again.';
       }
 
@@ -239,23 +219,18 @@ class AuthProvider with ChangeNotifier {
       
       // Store session token
       if (responseData['session_token'] == null) {
-        print('No session token in response');
         return 'Login failed: Server error';
       }
       
       await _storeSessionToken(responseData['session_token']);
-      print('Session token stored');
       
       // Get user role
       try {
         final roleSuccess = await _fetchUserRole();
         if (!roleSuccess) {
-          print('Failed to get user role');
           await _clearSessionToken();
           return 'Login failed: Could not determine user role';
         }
-        
-        print('Login successful - User: $loggedInUser, Role: $userRole');
         
         // Fetch labs and bookings after successful login
         await fetchLabs();
@@ -268,13 +243,11 @@ class AuthProvider with ChangeNotifier {
         return null;
         
       } catch (e) {
-        print('Error fetching role: $e');
         await _clearSessionToken();
         return 'Login failed: Could not get user role';
       }
       
     } catch (e) {
-      print('Login error: $e');
       if (e is DioException) {
         switch (e.type) {
           case DioExceptionType.connectionTimeout:
@@ -296,12 +269,10 @@ class AuthProvider with ChangeNotifier {
 
   Future<bool> _fetchUserRole() async {
     if (_sessionToken == null) {
-      print('Cannot fetch role: No session token');
       return false;
     }
 
     try {
-      print('Fetching user role with token: $_sessionToken');
       final response = await _dioClient.dio.post(
         'api/get_user_role.php',
         data: FormData.fromMap({
@@ -309,28 +280,18 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('Role response status: ${response.statusCode}');
-      print('Role response data: ${response.data}');
-
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data['status'] == 'success' && data['role'] != null) {
           userRole = data['role'].toString();
-          print('User role set to: $userRole');
           return true;
         } else {
-          print('Invalid role response: ${response.data}');
-          if (data['message'] != null) {
-            print('Role error message: ${data['message']}');
-          }
           userRole = null;
         }
       } else {
-        print('Failed to get role - Status: ${response.statusCode}');
         userRole = null;
       }
     } catch (e) {
-      print('Error in _fetchUserRole: $e');
       userRole = null;
     }
     return false;
@@ -350,7 +311,6 @@ class AuthProvider with ChangeNotifier {
       }
       return false;
     } catch (e) {
-      print('Error sending OTP: $e');
       return false;
     }
   }
@@ -370,7 +330,6 @@ class AuthProvider with ChangeNotifier {
       }
       return false;
     } catch (e) {
-      print('Error verifying OTP: $e');
       return false;
     }
   }
@@ -417,7 +376,6 @@ class AuthProvider with ChangeNotifier {
       }
       return 'Registration failed.';
     } catch (e) {
-      print('Error during registration: $e');
       return 'Registration failed due to network error.';
     }
   }
@@ -499,30 +457,22 @@ class AuthProvider with ChangeNotifier {
           notifyListeners();
           return true;
         } else {
-          print('Unexpected message: ${responseData['message']}');
           return false;
         }
       } else {
-        print('Error: Received status code ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      print('Error activating slot: $e');
       return false;
     }
   }
 
   Future<bool> removeBooking(String day, String time) async {
     if (_sessionToken == null) {
-      print('No session token available for booking removal');
       return false;
     }
 
     try {
-      print('Removing booking:');
-      print('Day: $day, Time: $time');
-      print('User: $loggedInUser, Role: $userRole');
-      print('Session token: $_sessionToken');
       
       final response = await _dioClient.dio.post(
         'api/remove_booking.php',
@@ -533,27 +483,19 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('Remove booking response:');
-      print('Status code: ${response.statusCode}');
-      print('Body: ${response.data}');
-
       if (response.statusCode == 200) {
         // Even if we get a FormatException, the removal might have succeeded
         // So we'll check if the status code is 200 and update the local state
         final slotKey = '$day-$time';
-        print('Booking removed successfully');
-        print('Updating local state for slot: $slotKey');
         
         bookings[slotKey] = null;
         notifyListeners();
         return true;
       }
       
-      print('HTTP error: ${response.statusCode}');
       return false;
 
     } catch (e) {
-      print('Exception in removeBooking: $e');
       // The operation might have succeeded even if we got a parse error
       // So we'll return true to ensure UI updates properly
       return true;
@@ -576,7 +518,6 @@ class AuthProvider with ChangeNotifier {
       }
       return false;
     } catch (e) {
-      print('Error adding lab: $e');
       return false;
     }
   }
@@ -587,15 +528,8 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       if (selectedLab == null) {
-        print('Error: No lab selected');
         return false;
       }
-
-      print('Requesting slots with data:');
-      print('Username: $loggedInUser');
-      print('Lab: $selectedLab');
-      print('Slots: $slots');
-      print('Description: $description');
 
       final response = await _dioClient.dio.post(
         'api/request_slot.php',
@@ -607,9 +541,7 @@ class AuthProvider with ChangeNotifier {
         },
       );
 
-      print('Response received:');
-      print('Status code: ${response.statusCode}');
-      print('Response data: ${response.data}');
+
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -619,18 +551,12 @@ class AuthProvider with ChangeNotifier {
           
           // Log failed slots but don't treat them as a complete failure
           if (data['failed_slots'] != null && (data['failed_slots'] as List).isNotEmpty) {
-            print('Some slots failed:');
-            for (var slot in data['failed_slots']) {
-              print('Failed - Date: ${slot['date']}, Time: ${slot['time']}, Reason: ${slot['reason']}');
-            }
           }
           
           // Update local state for successful slots
           if (hadSuccess) {
-            print('Updating local state for successful slots');
             for (var slot in data['slots']) {
               String key = '${slot['date']}-${slot['time']}';
-              print('Updating state for slot: $key');
               requests[key] = loggedInUser;
               if (description.isNotEmpty) {
                 descriptions[key] = description;
@@ -642,36 +568,28 @@ class AuthProvider with ChangeNotifier {
           // Return true if any slots were successful
           return hadSuccess;
         } else {
-          print('Request failed: ${data['error']}');
-          if (data['details'] != null) {
-            print('Details: ${data['details']}');
-          }
           return false;
         }
       }
       return false;
     } catch (e) {
-      print('Error requesting slots: $e');
       return false;
     }
   }
 
   Future<bool> requestSlot(String day, String time, {String description = ''}) async {
-    print('Requesting slot: day=$day, time=$time, username=$loggedInUser, description=$description');
     try {
       return requestSlots(
         slots: [{'date': day, 'time': time}],
         description: description,
       );
     } catch (e) {
-      print('Error requesting slot: $e');
       return false;
     }
   }
 
   // New method to handle request approvals/rejections
   Future<bool> handleRequest(int requestId, String action) async {
-    print('Handling request: id=$requestId, action=$action');
     try {
       final response = await _dioClient.dio.post(
         'api/handle_request.php',
@@ -682,8 +600,7 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.data}');
+
 
       final responseData = response.data;
 
@@ -692,11 +609,9 @@ class AuthProvider with ChangeNotifier {
         await fetchBookings();
         return true;
       } else {
-        print('Request handling failed: ${responseData['error']}');
         return false;
       }
     } catch (e) {
-      print('Error handling request: $e');
       return false;
     }
   }
@@ -705,7 +620,6 @@ class AuthProvider with ChangeNotifier {
   Future<bool> cancelRequest(String day, String time) async {
     try {
       if (selectedLab == null) {
-        print('Error: No lab selected');
         return false;
       }
 
@@ -719,10 +633,6 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('Cancel request response:');
-      print('Status code: ${response.statusCode}');
-      print('Response data: ${response.data}');
-
       if (response.statusCode == 200 && response.data['success'] == true) {
         // Update local state
         String key = '$day-$time';
@@ -733,7 +643,6 @@ class AuthProvider with ChangeNotifier {
       }
       return false;
     } catch (e) {
-      print('Error cancelling request: $e');
       return false;
     }
   }
@@ -748,7 +657,6 @@ class AuthProvider with ChangeNotifier {
           data: FormData.fromMap({'session_token': _sessionToken}),
         );
       } catch (e) {
-        print('Error during logout: $e');
       }
     }
     
