@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
     return ScalableApp(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'SB College Hall Booking',
+        title: 'Essential Slots',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           scaffoldBackgroundColor: Colors.white,
